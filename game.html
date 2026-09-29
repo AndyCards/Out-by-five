@@ -1306,7 +1306,7 @@ canvas.addEventListener("pointerdown", (ev) => {
   // screen feels responsive even without the visual press state a mouse gets
   const tapHaptic = () => { if (touchUI) Haptics.buzz(HAPTIC.light); };
   if (menu.open) { menuClick(p); tapHaptic(); return; }
-  if (howtoOpen) { tapHaptic(); howtoOpen = false; Sound.play("menu"); return; }
+  if (howtoOpen) { tapHaptic(); howtoOpen = false; Sound.play("menu"); if (tutorialPendingStart) { tutorialPendingStart = false; initializeGame(); } return; }
   if (game.mode === "CAUGHT" && game.caughtHold) {
     const b = caughtBtns.find(b => hit(b, p));
     if (b) { tapHaptic(); if (b.id === "continue") resumeAfterCaught(); else startGame(); return; }
