@@ -1269,13 +1269,21 @@ function keyPressed(...ks) { return ks.some(k => pressed.has(k)); }
 
 /* ---- touch controls (GDD: mobile) ---- */
 let touchUI = (typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches);
+// Touch controls — laid out for thumbs in landscape:
+// Left thumb: ◀ left edge, ▶ beside it, ▼ duck tucked between them
+// Right thumb: JUMP large bottom-right, E and F stacked above it
+// All buttons sit in the bottom ~80px so they never cover the play field
+const _BY = H - 78;   // primary button row Y  (bottom-aligned)
+const _BH = 68;       // primary button height
+const _SY = H - 78;   // secondary row same line, smaller
+const _SH = 56;
 const TOUCH_BTNS = [
-  { key: "arrowleft",  label: "◀",    x: 16,      y: 452, w: 72, h: 72 },
-  { key: "arrowright", label: "▶",    x: 96,      y: 452, w: 72, h: 72 },
-  { key: "arrowdown",  label: "▼",    x: 176,     y: 452, w: 72, h: 72 },
-  { key: "e",          label: "E",    x: W - 268, y: 452, w: 72, h: 72 },
-  { key: "f",          label: "F",    x: W - 188, y: 452, w: 72, h: 72 },
-  { key: " ",          label: "JUMP", x: W - 108, y: 424, w: 94, h: 100 },
+  { key: "arrowleft",  label: "◀",    x: 10,          y: _BY,      w: 68, h: _BH },
+  { key: "arrowdown",  label: "▼",    x: 86,          y: _BY,      w: 56, h: _BH },
+  { key: "arrowright", label: "▶",    x: 150,         y: _BY,      w: 68, h: _BH },
+  { key: "e",          label: "E",    x: W - 178,     y: _SY,      w: 52, h: _SH },
+  { key: "f",          label: "F",    x: W - 118,     y: _SY,      w: 52, h: _SH },
+  { key: " ",          label: "JUMP", x: W - 80,      y: H - 86,   w: 76, h: 80  },
 ];
 const MENU_CHIP = { x: W - 14 - 56, y: 14, w: 56, h: 56 };
 const TITLE_SETTINGS = { x: W - 152, y: 18, w: 134, h: 34 };
@@ -7055,15 +7063,27 @@ function drawPrompt(x, bottomY, p) {
 
 function drawTouchControls() {
   ctx.save();
+  // Subtle gradient bar at the bottom so buttons read clearly without obscuring gameplay
+  const barGrad = ctx.createLinearGradient(0, H - 96, 0, H);
+  barGrad.addColorStop(0, "rgba(10,18,28,0)");
+  barGrad.addColorStop(1, "rgba(10,18,28,0.55)");
+  ctx.fillStyle = barGrad;
+  ctx.fillRect(0, H - 96, W, 96);
+
   for (const b of TOUCH_BTNS) {
     const held = keys.has(b.key);
-    ctx.globalAlpha = held ? 0.85 : 0.5;
-    roundRect(b.x, b.y, b.w, b.h, b.key === " " ? 30 : 18, held ? C.teal : "rgba(27,38,52,0.85)", "rgba(255,255,255,0.5)");
+    const isJump = b.key === " ";
+    ctx.globalAlpha = held ? 0.92 : 0.55;
+    roundRect(b.x, b.y, b.w, b.h, isJump ? 32 : 18,
+      held ? C.teal : "rgba(255,255,255,0.12)",
+      held ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)");
     ctx.globalAlpha = 1;
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = `800 ${b.label.length > 1 ? 13 : 22}px ${F_UI}`;
+    ctx.fillStyle = held ? "#FFFFFF" : "rgba(255,255,255,0.85)";
+    ctx.font = `800 ${b.label.length > 1 ? 12 : 22}px ${F_UI}`;
     ctx.textAlign = "center";
-    ctx.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2 + (b.label.length > 1 ? 5 : 8));
+    ctx.textBaseline = "middle";
+    ctx.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2 + (isJump ? 1 : 0));
+    ctx.textBaseline = "alphabetic";
   }
   ctx.restore();
 }
