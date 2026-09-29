@@ -109,7 +109,6 @@
 <div class="wrap">
   <canvas id="game" width="1104" height="621" tabindex="0"></canvas>
 </div>
-<div class="hint">← → move · space jump · ↑ climb · ↓ hide · E sit (hold: fake work) · F throw · Esc menu · M mute</div>
 <div id="rotatePrompt">
   <div class="icon">📱</div>
   <h2>TURN YOUR PHONE SIDEWAYS</h2>
@@ -1291,20 +1290,24 @@ let touchUI = (typeof matchMedia === "function" && matchMedia("(pointer: coarse)
 // Left thumb: ◀ left edge, ▶ beside it, ▼ duck tucked between them
 // Right thumb: JUMP large bottom-right, E and F stacked above it
 // All buttons sit in the bottom ~80px so they never cover the play field
-const _BY = H - 78;   // primary button row Y  (bottom-aligned)
-const _BH = 68;       // primary button height
-const _SY = H - 78;   // secondary row same line, smaller
-const _SH = 56;
+const _BY = H - 82;   // primary button row Y  (bottom-aligned)
+const _BH = 76;       // primary button height — larger for thumb accuracy
+const _SY = H - 80;   // secondary row
+const _SH = 58;
+// Directional buttons: wider, taller, with explicit padding so the invisible
+// hit zone extends well beyond the visible shape. 16px visual gaps between
+// visible buttons but generous overlap in hit-zone is intentional (thumb
+// can't distinguish pixel-perfect zones at speed).
+const _DW = 80;  // directional button visible width
+const _DG = 14;  // gap between visible directional buttons
 const TOUCH_BTNS = [
-  { key: "arrowleft",  label: "◀",    x: 10,          y: _BY,      w: 68, h: _BH },
-  { key: "arrowdown",  label: "▼",    x: 86,          y: _BY,      w: 56, h: _BH },
-  { key: "arrowright", label: "▶",    x: 150,         y: _BY,      w: 68, h: _BH },
-  // E/F stay small and unobtrusive visually, but their actual tap target is
-  // grown outward (away from each other, and upward into open space) so
-  // they're still easy to hit without looking like big buttons on screen.
-  { key: "e",          label: "E",    x: W - 178,     y: _SY,      w: 52, h: _SH, pad: { l: 16, r: 4,  t: 20, b: 4 } },
-  { key: "f",          label: "F",    x: W - 118,     y: _SY,      w: 52, h: _SH, pad: { l: 4,  r: 16, t: 20, b: 4 } },
-  { key: " ",          label: "JUMP", x: W - 80,      y: H - 86,   w: 76, h: 80,  pad: { l: 8,  r: 8,  t: 10, b: 4 } },
+  { key: "arrowleft",  label: "◀",    x: 10,               y: _BY,      w: _DW, h: _BH, pad: { l: 10, r: 6, t: 14, b: 8 } },
+  { key: "arrowdown",  label: "▼",    x: 10 + _DW + _DG,   y: _BY,      w: 64,  h: _BH, pad: { l: 6,  r: 6, t: 14, b: 8 } },
+  { key: "arrowright", label: "▶",    x: 10 + _DW + _DG + 64 + _DG, y: _BY, w: _DW, h: _BH, pad: { l: 6, r: 10, t: 14, b: 8 } },
+  // E/F: visible small, hit zones extended outward and upward
+  { key: "e",          label: "E",    x: W - 188,     y: _SY,      w: 54, h: _SH, pad: { l: 18, r: 4,  t: 22, b: 6 } },
+  { key: "f",          label: "F",    x: W - 126,     y: _SY,      w: 54, h: _SH, pad: { l: 4,  r: 18, t: 22, b: 6 } },
+  { key: " ",          label: "JUMP", x: W - 82,      y: H - 90,   w: 78, h: 84,  pad: { l: 10, r: 10, t: 12, b: 6 } },
 ];
 const ZERO_PAD = { l: 0, r: 0, t: 0, b: 0 };
 function hitTouchBtn(b, p) {
@@ -1403,10 +1406,10 @@ function menuItems() {
   // In-game pause: just two CTAs at the bottom — Start Over (left) and the
   // primary green Resume (right, where Quit to Title used to sit). No
   // standalone top Resume button and no Quit here.
-  if (menu.from === "PLAY") return [...toggles, { id: "restart", label: "Start over" }, { id: "resume", label: "Resume" }];
+  if (menu.from === "PLAY") return [...toggles, { id: "howto", label: "How to play" }, { id: "restart", label: "Start over" }, { id: "resume", label: "Resume" }];
   // Settings opened from the title screen: unchanged — single "Back" primary
   // button up top, no bottom row.
-  return [{ id: "resume", label: "Back" }, ...toggles];
+  return [{ id: "resume", label: "Back" }, ...toggles, { id: "howto", label: "How to play" }];
 }
 function openMenu() {
   if (menu.open) return;
@@ -1429,6 +1432,7 @@ function menuSelect(i) {
   if (it.id === "haptics") { settings.haptics = !settings.haptics; if (settings.haptics) Haptics.buzz(HAPTIC.double, true); }
   if (it.id === "restart") { menu.open = false; startGame(); }
   if (it.id === "quit") { menu.open = false; game.mode = "TITLE"; Sound.stopMusic(); Sound.setMuffle(false); }
+  if (it.id === "howto") { menu.open = false; howtoOpen = true; return; }
   Sound.applySettings();
   saveSettings();
   Sound.play("menu");
@@ -7143,12 +7147,12 @@ function drawTouchControls() {
   for (const b of TOUCH_BTNS) {
     const held = keys.has(b.key);
     const isJump = b.key === " ";
-    ctx.globalAlpha = held ? 0.92 : 0.55;
+    ctx.globalAlpha = held ? 0.95 : 0.35;
     roundRect(b.x, b.y, b.w, b.h, isJump ? 32 : 18,
-      held ? C.teal : "rgba(255,255,255,0.12)",
-      held ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)");
+      held ? C.teal : "rgba(255,255,255,0.15)",
+      held ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.45)");
     ctx.globalAlpha = 1;
-    ctx.fillStyle = held ? "#FFFFFF" : "rgba(255,255,255,0.85)";
+    ctx.fillStyle = held ? "#FFFFFF" : "rgba(255,255,255,0.70)";
     ctx.font = `800 ${b.label.length > 1 ? 12 : 22}px ${F_UI}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
