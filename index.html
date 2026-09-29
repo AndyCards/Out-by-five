@@ -1429,7 +1429,11 @@ function menuSelect(i) {
   if (!it) return;
   if (it.id === "resume") return closeMenu();
   if (it.id === "sound") { settings.sound = !settings.sound; muted = !settings.sound; }
-  if (it.id === "music") settings.music = !settings.music;
+  if (it.id === "music") {
+    settings.music = !settings.music;
+    if (settings.music && game.mode !== "TITLE") Sound.startMusic();
+    else if (!settings.music) Sound.stopMusic();
+  }
   if (it.id === "haptics") { settings.haptics = !settings.haptics; if (settings.haptics) Haptics.buzz(HAPTIC.double, true); }
   if (it.id === "restart") { menu.open = false; startGame(); }
   if (it.id === "quit") { menu.open = false; game.mode = "TITLE"; Sound.stopMusic(); Sound.setMuffle(false); }
@@ -1438,8 +1442,19 @@ function menuSelect(i) {
   saveSettings();
   Sound.play("menu");
 }
+function menuScaledPoint(p) {
+  // renderMenu applies a ctx.scale on mobile — transform the raw canvas point
+  // into that scaled coordinate space so hit-testing against menu.rects works
+  if (!touchUI) return p;
+  const mScale = Math.min(W / 420, H / 420) * 1.22;
+  return {
+    x: (p.x - W / 2) / mScale + W / 2,
+    y: (p.y - H / 2) / mScale + H / 2,
+  };
+}
 function menuClick(p) {
-  const i = menu.rects.findIndex(r => hit(r, p));
+  const sp = menuScaledPoint(p);
+  const i = menu.rects.findIndex(r => hit(r, sp));
   if (i >= 0) { menu.idx = i; menuSelect(i); } else closeMenu();
 }
 function updateMenu() {
