@@ -24,6 +24,16 @@
     color: #F5EFE3;
     font-family: "Fredoka", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     overflow: hidden;
+    /* The whole page IS the game — never let a stray tap/press select text,
+       trigger Safari's Copy/Look Up/Translate callout, or drag an image.
+       (Nothing outside this page shares these rules, so ordinary readable
+       pages elsewhere are unaffected.) */
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+  }
+  .wrap, #game, #gameBlur, .hint {
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
   }
   .wrap {
     position: fixed; inset: 0;
@@ -55,6 +65,10 @@
        stretched to fill them. .wrap centers whatever space is left over. */
     border-radius: 0;
     box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    /* Belt-and-suspenders alongside the JS-set canvas.style.touchAction —
+       the whole canvas is the touch-control surface, so the browser must
+       never intercept a drag/hold as a page gesture (scroll, zoom, callout). */
+    touch-action: none;
   }
   .hint {
     position: fixed; bottom: 8px; left: 0; right: 0;
@@ -65,7 +79,11 @@
   /* This is a landscape-only game — the office runs wide, not tall, and the
      touch controls are laid out for a landscape thumb reach. On a phone held
      upright, show a rotate prompt instead of a squashed, unusable layout. */
-  #rotatePrompt { display: none; }
+  #rotatePrompt {
+    display: none;
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+  }
   @media (pointer: coarse) and (orientation: portrait) {
     .wrap { display: none; }
     .hint { display: none; }
@@ -1281,10 +1299,18 @@ const TOUCH_BTNS = [
   { key: "arrowleft",  label: "◀",    x: 10,          y: _BY,      w: 68, h: _BH },
   { key: "arrowdown",  label: "▼",    x: 86,          y: _BY,      w: 56, h: _BH },
   { key: "arrowright", label: "▶",    x: 150,         y: _BY,      w: 68, h: _BH },
-  { key: "e",          label: "E",    x: W - 178,     y: _SY,      w: 52, h: _SH },
-  { key: "f",          label: "F",    x: W - 118,     y: _SY,      w: 52, h: _SH },
-  { key: " ",          label: "JUMP", x: W - 80,      y: H - 86,   w: 76, h: 80  },
+  // E/F stay small and unobtrusive visually, but their actual tap target is
+  // grown outward (away from each other, and upward into open space) so
+  // they're still easy to hit without looking like big buttons on screen.
+  { key: "e",          label: "E",    x: W - 178,     y: _SY,      w: 52, h: _SH, pad: { l: 16, r: 4,  t: 20, b: 4 } },
+  { key: "f",          label: "F",    x: W - 118,     y: _SY,      w: 52, h: _SH, pad: { l: 4,  r: 16, t: 20, b: 4 } },
+  { key: " ",          label: "JUMP", x: W - 80,      y: H - 86,   w: 76, h: 80,  pad: { l: 8,  r: 8,  t: 10, b: 4 } },
 ];
+const ZERO_PAD = { l: 0, r: 0, t: 0, b: 0 };
+function hitTouchBtn(b, p) {
+  const pad = b.pad || ZERO_PAD;
+  return p.x >= b.x - pad.l && p.x <= b.x + b.w + pad.r && p.y >= b.y - pad.t && p.y <= b.y + b.h + pad.b;
+}
 const MENU_CHIP = { x: W - 14 - 56, y: 14, w: 56, h: 56 };
 const TITLE_SETTINGS = { x: W - 152, y: 18, w: 134, h: 34 };
 // title-screen "How to Play" — a single static panel (not a paginated flow):
@@ -1304,6 +1330,19 @@ function releaseTouch(id) {
   touchKeys.delete(id);
   if (![...touchKeys.values()].includes(k)) keys.delete(k);
 }
+// On phones, clock in with the browser chrome hidden — but requestFullscreen()
+// only works from inside a real user gesture, so this is called from the same
+// tap that starts the game, and only once (repeat taps are a no-op).
+let _fsTried = false;
+function requestMobileFullscreen() {
+  if (_fsTried || !touchUI) return;
+  _fsTried = true;
+  try {
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) req.call(el).catch(() => {});
+  } catch (e) {}
+}
 canvas.style.touchAction = "none";
 canvas.addEventListener("pointerdown", (ev) => {
   canvas.focus();
@@ -1320,7 +1359,7 @@ canvas.addEventListener("pointerdown", (ev) => {
     if (b) { tapHaptic(); if (b.id === "continue") resumeAfterCaught(); else startGame(); return; }
   }
   if (touchUI && game.mode === "PLAY") {
-    const b = TOUCH_BTNS.find(b => hit(b, p));
+    const b = TOUCH_BTNS.find(b => hitTouchBtn(b, p));
     if (b) {
       touchKeys.set(ev.pointerId, b.key);
       pressKey(b.key);
@@ -1333,7 +1372,7 @@ canvas.addEventListener("pointerdown", (ev) => {
   if (game.mode === "PLAY" && hit(MENU_CHIP, p)) { tapHaptic(); openMenu(); return; }
   if (game.mode === "TITLE" && hit(TITLE_SETTINGS, p)) { tapHaptic(); openMenu(); return; }
   if (game.mode === "TITLE" && hit(TITLE_HOWTO, p)) { tapHaptic(); howtoOpen = true; Sound.play("menu"); return; }
-  if (game.mode === "TITLE") { tapHaptic(); startGame(); return; }
+  if (game.mode === "TITLE") { tapHaptic(); requestMobileFullscreen(); startGame(); return; }
   if (game.mode === "WIN" || game.mode === "LOSE") {
     const b = resultBtns.find(b => hit(b, p));
     if (b && b.id === "share") { tapHaptic(); copyResult(); return; }
@@ -1343,7 +1382,7 @@ canvas.addEventListener("pointerdown", (ev) => {
 });
 canvas.addEventListener("pointermove", (ev) => {
   if (!touchKeys.has(ev.pointerId)) return;
-  const b = TOUCH_BTNS.find(b => hit(b, canvasPoint(ev)));
+  const b = TOUCH_BTNS.find(b => hitTouchBtn(b, canvasPoint(ev)));
   if (b && b.key !== touchKeys.get(ev.pointerId)) {
     releaseTouch(ev.pointerId); touchKeys.set(ev.pointerId, b.key); pressKey(b.key);
     if (touchUI) Haptics.buzz(HAPTIC.light);
@@ -2130,6 +2169,7 @@ const game = {
   sceneT: 0, invite: null, penaltyAt: -1e9, penaltySec: 0, elevatorOpen: 0,
   nextTick: 0, result: null,
   score: 0, scoreBumpAt: -1e9,
+  camOffsetFrac: 0.5, camZoom: 1, camViewW: W,   // mobile camera zoom/lead-offset (see updateCamera)
 };
 let stats = {};
 const hints = { hide: 0, sit: 0, room: 0, dirWarned: false, phoneWarned: false, hoverWarned: false, doorWarned: false };
@@ -2241,6 +2281,7 @@ function initializeGame() {
     elevatorOpen: 0, nextTick: 0, result: null, exitClock: null,
     zoneIdx: 0, toast: null, comboN: 0, comboAt: -1e9, confetti: [],
     score: 0, scoreBumpAt: -1e9,
+    camOffsetFrac: 0.5, camZoom: 1, camViewW: W,
   });
   LOOT_COPY_IDX.snack = 0; LOOT_COPY_IDX.charger = 0; LOOT_COPY_IDX.powerBank = 0;
   // pantry drop mix jitters slightly day to day (seeded, so it's still the
@@ -2380,9 +2421,25 @@ function update(dtMs) {
   pressed.clear();
 }
 
+const MOBILE_ZOOM = 1.3;   // ~30% closer camera on touch devices: bigger character/enemies, less world per screen
 function updateCamera(dt) {
-  const target = clamp(player.x - W / 2, 0, LEVEL_W - W);
+  // On mobile, zoom the effective view in and lead the camera in the direction
+  // of travel so the player can see more of what's ahead (platforms, enemies).
+  // Desktop keeps the original centered, unzoomed framing.
+  const zoom = touchUI ? MOBILE_ZOOM : 1;
+  const viewW = W / zoom;
+  let targetFrac = 0.5;
+  if (touchUI) {
+    if (player.vx > 20) targetFrac = 0.38;        // running right — show more ahead
+    else if (player.vx < -20) targetFrac = 0.62;  // running left — mirror the lead
+    else targetFrac = game.camOffsetFrac ?? 0.5;  // idle — hold last offset, no jitter
+  }
+  game.camOffsetFrac = (game.camOffsetFrac ?? 0.5) + (targetFrac - (game.camOffsetFrac ?? 0.5)) * (1 - Math.pow(0.0006, dt));
+  const maxCam = Math.max(0, LEVEL_W - viewW);
+  const target = clamp(player.x - viewW * game.camOffsetFrac, 0, maxCam);
   game.cameraX += (target - game.cameraX) * (1 - Math.pow(0.0001, dt));   // frame-rate independent
+  game.camZoom = zoom;
+  game.camViewW = viewW;
 }
 function tickParticles(dt, dtMs) {
   for (let i = particles.length - 1; i >= 0; i--) {
@@ -3399,6 +3456,10 @@ function render() {
     const m = game.shakeMag;
     ctx.translate(Math.round((Math.random() - 0.5) * 2 * m), Math.round((Math.random() - 0.5) * 2 * m));
   }
+  // Mobile zoom: scale the world view up around the ground line so the floor
+  // stays put while sky/ceiling crop away and the character reads bigger.
+  const zoom = game.camZoom || 1;
+  if (zoom !== 1) { ctx.translate(0, GY * (1 - zoom)); ctx.scale(zoom, zoom); }
   renderWorld(Math.round(game.cameraX));
   ctx.restore();
   renderHUD();
@@ -3417,7 +3478,7 @@ function render() {
 }
 
 function renderWorld(camX) {
-  const zone = zoneAt(camX + W / 2);
+  const zone = zoneAt(camX + (game.camViewW || W) / 2);
   const g = ctx.createLinearGradient(0, 0, 0, H);
   g.addColorStop(0, "#EAF3F6");
   g.addColorStop(0.55, zone.wall);
@@ -6220,17 +6281,26 @@ function renderHUD() {
     rx -= chip + gap;
   };
   powerChip("phones", player.phonesUntil, "#E3FAF7", C.teal, C.tealDark);
-  powerChip("coffee", player.coffeeUntil, "#FBF1E4", "#D9A441", "#A56236");
+  // On mobile, the coffee chip only earns its screen space once there's
+  // something to show — an empty/inactive slot is pure clutter on a small
+  // screen. Desktop keeps the always-visible washed-out chip for at-a-glance
+  // inventory awareness.
+  const showCoffeeChip = !touchUI || player.coffeeUntil > now;
+  if (showCoffeeChip) powerChip("coffee", player.coffeeUntil, "#FBF1E4", "#D9A441", "#A56236");
 
-  // Files chip: the folder + three ammo pips (you can carry 3)
+  // Files chip: the folder + three ammo pips (you can carry 3) — same
+  // mobile-only hide-when-empty rule as coffee, above.
   const hasFiles = player.files > 0;
-  roundRect(rx, 14, chip, chip, 14, "#FFFFFF", "rgba(38,52,70,0.06)", true);
-  drawHudPickupIcon("file", rx + chip / 2, 14 + 25, 0.9, !hasFiles);
-  for (let i = 0; i < 3; i++) {
-    const px = rx + chip / 2 - 16 + i * 12, py = 14 + 41;
-    ctx.fillStyle = "#1B2634"; ctx.fillRect(px, py, 8, 7);
-    ctx.fillStyle = i < player.files ? "#F2C14E" : "#E4E8EC"; ctx.fillRect(px + 1, py + 1, 6, 5);
-    if (i < player.files) { ctx.fillStyle = "#F9DB8C"; ctx.fillRect(px + 1, py + 1, 6, 1); }
+  const showFilesChip = !touchUI || hasFiles;
+  if (showFilesChip) {
+    roundRect(rx, 14, chip, chip, 14, "#FFFFFF", "rgba(38,52,70,0.06)", true);
+    drawHudPickupIcon("file", rx + chip / 2, 14 + 25, 0.9, !hasFiles);
+    for (let i = 0; i < 3; i++) {
+      const px = rx + chip / 2 - 16 + i * 12, py = 14 + 41;
+      ctx.fillStyle = "#1B2634"; ctx.fillRect(px, py, 8, 7);
+      ctx.fillStyle = i < player.files ? "#F2C14E" : "#E4E8EC"; ctx.fillRect(px + 1, py + 1, 6, 5);
+      if (i < player.files) { ctx.fillStyle = "#F9DB8C"; ctx.fillRect(px + 1, py + 1, 6, 1); }
+    }
   }
 
   ctx.restore();
