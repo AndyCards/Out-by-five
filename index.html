@@ -1304,10 +1304,11 @@ const TOUCH_BTNS = [
   { key: "arrowleft",  label: "◀",    x: 10,               y: _BY,      w: _DW, h: _BH, pad: { l: 10, r: 6, t: 14, b: 8 } },
   { key: "arrowdown",  label: "▼",    x: 10 + _DW + _DG,   y: _BY,      w: 64,  h: _BH, pad: { l: 6,  r: 6, t: 14, b: 8 } },
   { key: "arrowright", label: "▶",    x: 10 + _DW + _DG + 64 + _DG, y: _BY, w: _DW, h: _BH, pad: { l: 6, r: 10, t: 14, b: 8 } },
-  // E/F: visible small, hit zones extended outward and upward
-  { key: "e",          label: "E",    x: W - 188,     y: _SY,      w: 54, h: _SH, pad: { l: 18, r: 4,  t: 22, b: 6 } },
-  { key: "f",          label: "F",    x: W - 126,     y: _SY,      w: 54, h: _SH, pad: { l: 4,  r: 18, t: 22, b: 6 } },
-  { key: " ",          label: "JUMP", x: W - 82,      y: H - 90,   w: 78, h: 84,  pad: { l: 10, r: 10, t: 12, b: 6 } },
+  // JUMP is the primary action — biggest button, isolated far right
+  // E/F sit to its left with a clear 20px+ visual gap so thumbs never misfire
+  { key: " ",          label: "JUMP", x: W - 96,      y: H - 104,  w: 92, h: 98,  pad: { l: 10, r: 6,  t: 12, b: 6 } },
+  { key: "f",          label: "F",    x: W - 210,     y: _SY,      w: 56, h: _SH, pad: { l: 4,  r: 8,  t: 22, b: 6 } },
+  { key: "e",          label: "E",    x: W - 274,     y: _SY,      w: 56, h: _SH, pad: { l: 8,  r: 4,  t: 22, b: 6 } },
 ];
 const ZERO_PAD = { l: 0, r: 0, t: 0, b: 0 };
 function hitTouchBtn(b, p) {
@@ -6501,6 +6502,13 @@ function drawIconChip(x, y, kind, text) {
 }
 function renderHowToPlay() {
   ctx.save();
+  // On mobile, scale the entire panel up so it's readable on a small phone screen
+  if (touchUI) {
+    const mScale = Math.min(W / 700, H / 480) * 1.18;
+    ctx.translate(W / 2, H / 2);
+    ctx.scale(mScale, mScale);
+    ctx.translate(-W / 2, -H / 2);
+  }
   ctx.fillStyle = "rgba(27,38,52,0.62)"; ctx.fillRect(0, 0, W, H);
 
   const cw = 700, ch = 476;
@@ -6631,6 +6639,13 @@ function pixelToggle(x, y, on) {
 
 function renderMenu() {
   ctx.save();
+  // Scale up on mobile so the menu text is comfortably readable
+  if (touchUI) {
+    const mScale = Math.min(W / 420, H / 420) * 1.22;
+    ctx.translate(W / 2, H / 2);
+    ctx.scale(mScale, mScale);
+    ctx.translate(-W / 2, -H / 2);
+  }
   ctx.fillStyle = "rgba(15,26,38,0.72)"; ctx.fillRect(0, 0, W, H);
   const items = menuItems();
   const hasBottom = items.some(it => it.id === "restart");
@@ -6752,6 +6767,10 @@ function renderCaught() {
   const inv = game.invite;
   if (!inv) return;
   ctx.save();
+  if (touchUI) {
+    const mScale = Math.min(W / 450, H / 420) * 1.18;
+    ctx.translate(W / 2, H / 2); ctx.scale(mScale, mScale); ctx.translate(-W / 2, -H / 2);
+  }
   ctx.fillStyle = `rgba(70,63,150,${Math.min(0.45, t / 600)})`;
   ctx.fillRect(0, 0, W, H);
   const cw = 430;
@@ -6847,6 +6866,10 @@ function renderCaught() {
 function renderResultCard(win) {
   const r = game.result || { titles: [] };
   ctx.save();
+  if (touchUI) {
+    const mScale = Math.min(W / 500, H / 460) * 1.18;
+    ctx.translate(W / 2, H / 2); ctx.scale(mScale, mScale); ctx.translate(-W / 2, -H / 2);
+  }
   ctx.fillStyle = win ? "rgba(20,184,176,0.28)" : "rgba(27,38,52,0.6)";
   ctx.fillRect(0, 0, W, H);
 
