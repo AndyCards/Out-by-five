@@ -80,6 +80,7 @@
   #ctrlLeft, #ctrlRight {
     position: fixed; top: 0; bottom: 0;
     display: none;
+    overflow: hidden;
     flex-direction: column;
     align-items: center; justify-content: center;
     gap: 6px;
@@ -92,29 +93,39 @@
   @media (pointer: coarse) {
     #ctrlLeft, #ctrlRight { display: flex; }
   }
-  /* d-pad row helper */
+  /* d-pad row helper — kept for any future multi-button rows */
   .ctrl-row {
     display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  /* Both panels lay out as a single vertical column */
+  #ctrlLeft, #ctrlRight {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 8px 4px;
   }
   .ctrl-btn {
     pointer-events: auto;
     touch-action: none;
-    width: 72px; height: 72px;
+    width: 52px; height: 52px;
     display: flex; align-items: center; justify-content: center;
     background: rgba(30, 40, 60, 0.72);
     border: 2px solid rgba(30, 40, 60, 0.5);
-    border-radius: 18px;
+    border-radius: 14px;
     color: #fff;
-    font-size: 20px; font-weight: 800;
+    font-size: 18px; font-weight: 800;
     cursor: pointer;
     -webkit-user-select: none; user-select: none;
     transition: background 0.07s, border-color 0.07s;
     box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    flex-shrink: 0;
   }
   .ctrl-btn.jump {
-    width: 90px; height: 90px;
-    border-radius: 28px;
-    font-size: 13px;
+    width: 64px; height: 64px;
+    border-radius: 20px;
+    font-size: 11px; font-weight: 900;
+    letter-spacing: 0.02em;
   }
   .ctrl-btn.held, .ctrl-btn:active {
     background: #3EC9C4;
@@ -161,24 +172,15 @@
 </div>
 <!-- HTML touch controls: live in the letterbox margins outside the canvas -->
 <div id="ctrlLeft">
-  <div class="ctrl-row">
-    <button class="ctrl-btn" data-key="arrowup" aria-label="Up">▲</button>
-  </div>
-  <div class="ctrl-row">
-    <button class="ctrl-btn" data-key="arrowleft" aria-label="Left">◀</button>
-    <div style="width:72px"></div>
-    <button class="ctrl-btn" data-key="arrowright" aria-label="Right">▶</button>
-  </div>
-  <div class="ctrl-row">
-    <button class="ctrl-btn" data-key="arrowdown" aria-label="Down">▼</button>
-  </div>
+  <button class="ctrl-btn" data-key="arrowup"    aria-label="Up">▲</button>
+  <button class="ctrl-btn" data-key="arrowleft"  aria-label="Left">◀</button>
+  <button class="ctrl-btn" data-key="arrowdown"  aria-label="Down">▼</button>
+  <button class="ctrl-btn" data-key="arrowright" aria-label="Right">▶</button>
 </div>
 <div id="ctrlRight">
   <button class="ctrl-btn jump" data-key=" " aria-label="Jump">JUMP</button>
-  <div class="ctrl-row">
-    <button class="ctrl-btn" data-key="e" aria-label="Use">E</button>
-    <button class="ctrl-btn" data-key="f" aria-label="Throw">F</button>
-  </div>
+  <button class="ctrl-btn" data-key="e" aria-label="Use">E</button>
+  <button class="ctrl-btn" data-key="f" aria-label="Throw">F</button>
 </div>
 <div id="rotatePrompt">
   <div class="icon">📱</div>
