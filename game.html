@@ -7010,7 +7010,7 @@ function renderCaught() {
   ctx.save();
   ctx.fillStyle = `rgba(70,63,150,${Math.min(0.45, t / 600)})`;
   ctx.fillRect(0, 0, W, H);
-  const cw = Math.min(430, W - 24);
+  const cw = Math.min(430 * 1.2, W - 24);
   const cx = Math.round((W - cw) / 2);
   const agendaX = cx + 100, agendaW = cw - agendaX + cx - 20;   // right padding to card edge
 
@@ -7023,10 +7023,10 @@ function renderCaught() {
     ["ORGANIZER", inv.org],
     ["AGENDA", inv.agenda],
   ].map(([k, v]) => [k, wrapText(v, agendaW).slice(0, 3)]);
-  const rowsTop = 138, lineH = 18, rowPad = 9;
+  const rowsTop = 138 * 1.2, lineH = 18, rowPad = 9;
   let rowsH = 0;
   for (const [, ls] of rowDefs) rowsH += ls.length * lineH + rowPad;
-  const footerH = 68;   // reserved so the card doesn't resize when the CTA row appears
+  const footerH = 68 * 1.2;   // reserved so the card doesn't resize when the CTA row appears
   const chh = rowsTop + rowsH + 16 + footerH;
 
   const slide = Math.max(0, 1 - t / 280);
@@ -7106,7 +7106,7 @@ function renderResultCard(win) {
   ctx.fillStyle = win ? "rgba(20,184,176,0.28)" : "rgba(27,38,52,0.6)";
   ctx.fillRect(0, 0, W, H);
 
-  const cw = Math.min(480, W - 24);
+  const cw = Math.min(480 * 1.2, W - 24);
   const cx = Math.round((W - cw) / 2);
   const rows = win ? [
     ["Time out", `${r.clock} PM`],
@@ -7124,10 +7124,10 @@ function renderResultCard(win) {
     ["Office loot", `${stats.loot || 0} / ${LOOT_TOTAL}`],
   ];
   const title = win ? "YOU'VE MADE IT!" : (r.loseMsg || LOSE_MESSAGES[0]);
-  const scoreY = win ? 141 : 124;               // win subtitle runs two lines, so score sits a little lower
-  const rowsTop = win ? 189 : 172, rowGap = win ? 40 : 45;
+  const scoreY = win ? 141 * 1.2 : 124 * 1.2;               // win subtitle runs two lines, so score sits a little lower
+  const rowsTop = win ? 189 * 1.2 : 172 * 1.2, rowGap = win ? 40 : 45;
   const badge = (r.titles && r.titles[0]) || null;
-  const footer = 92;
+  const footer = 92 * 1.2;
   const chh = rowsTop + rows.length * rowGap + (badge ? 50 : 16) + footer - 36;
   const cy = Math.round((H - chh) / 2) - 8;
   drawConfetti();
