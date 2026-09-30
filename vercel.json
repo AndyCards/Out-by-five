@@ -1,5 +1,0 @@
-{
-  "buildCommand": "echo 'Static files ready'",
-  "outputDirectory": ".",
-  "cleanUrls": false
-}
