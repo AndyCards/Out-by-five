@@ -101,14 +101,15 @@
     touch-action: none;
     width: 72px; height: 72px;
     display: flex; align-items: center; justify-content: center;
-    background: rgba(255,255,255,0.18);
-    border: 1px solid rgba(255,255,255,0.35);
+    background: rgba(30, 40, 60, 0.72);
+    border: 2px solid rgba(30, 40, 60, 0.5);
     border-radius: 18px;
     color: #fff;
     font-size: 20px; font-weight: 800;
     cursor: pointer;
     -webkit-user-select: none; user-select: none;
     transition: background 0.07s, border-color 0.07s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
   }
   .ctrl-btn.jump {
     width: 90px; height: 90px;
@@ -117,7 +118,7 @@
   }
   .ctrl-btn.held, .ctrl-btn:active {
     background: #3EC9C4;
-    border-color: #fff;
+    border-color: #3EC9C4;
   }
   .hint {
     position: fixed; bottom: 8px; left: 0; right: 0;
