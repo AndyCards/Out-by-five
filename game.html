@@ -7078,24 +7078,24 @@ function renderCaught() {
   // once the scene has settled, hand control back to the player instead of
   // auto-resuming — Continue picks up from the checkpoint, Restart starts fresh
   if (game.caughtHold) {
-    const bw = 198, bh = 42, gap = 10;
+    const bw = 198 * 1.2, bh = 42 * 1.2, gap = 10 * 1.2;
     const bx0 = Math.round(W / 2 - bw - gap / 2), by = cy + chh - 16 - bh;
     caughtBtns = [
       { id: "restart", x: bx0, y: by, w: bw, h: bh },
       { id: "continue", x: bx0 + bw + gap, y: by, w: bw, h: bh },
     ];
     // secondary action: white background with purple border & text
-    roundRect(bx0, by, bw, bh, 6, "#FFFFFF", purple, false);
-    ctx.strokeStyle = purple; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.roundRect(bx0 + 1.25, by + 1.25, bw - 2.5, bh - 2.5, 4.75); ctx.stroke();
-    ctx.fillStyle = purple; ctx.font = `800 13px ${F_UI}`; ctx.textAlign = "center";
-    ctx.fillText("↻ RESTART SHIFT", bx0 + bw / 2, by + 27);
+    roundRect(bx0, by, bw, bh, 6 * 1.2, "#FFFFFF", purple, false);
+    ctx.strokeStyle = purple; ctx.lineWidth = 2.5 * 1.2;
+    ctx.beginPath(); ctx.roundRect(bx0 + 1.25 * 1.2, by + 1.25 * 1.2, bw - 2.5 * 1.2, bh - 2.5 * 1.2, 4.75 * 1.2); ctx.stroke();
+    ctx.fillStyle = purple; ctx.font = `800 ${Math.round(13 * 1.2)}px ${F_UI}`; ctx.textAlign = "center";
+    ctx.fillText("↻ RESTART SHIFT", bx0 + bw / 2, by + 27 * 1.2);
     // primary action: purple filled with white text
-    roundRect(bx0 + bw + gap, by, bw, bh, 6, purple, null, true);
-    ctx.fillStyle = "#FFFFFF"; ctx.font = `800 13px ${F_UI}`; ctx.textAlign = "center";
-    ctx.fillText("▶ CONTINUE", bx0 + bw + gap + bw / 2, by + 27);
-    ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.font = `600 9px ${F_UI}`;
-    ctx.fillText(touchUI ? "TAP TO CHOOSE" : "SPACE · CONTINUE      R · RESTART", W / 2, cy + chh + 20);
+    roundRect(bx0 + bw + gap, by, bw, bh, 6 * 1.2, purple, null, true);
+    ctx.fillStyle = "#FFFFFF"; ctx.font = `800 ${Math.round(13 * 1.2)}px ${F_UI}`; ctx.textAlign = "center";
+    ctx.fillText("▶ CONTINUE", bx0 + bw + gap + bw / 2, by + 27 * 1.2);
+    ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.font = `600 ${Math.round(9 * 1.2)}px ${F_UI}`;
+    ctx.fillText(touchUI ? "TAP TO CHOOSE" : "SPACE · CONTINUE      R · RESTART", W / 2, cy + chh + 20 * 1.2);
   }
   ctx.restore();
 }
@@ -7170,38 +7170,38 @@ function renderResultCard(win) {
   // earned-title pill, overlapping the last divider
   if (badge) {
     const [name] = badge;
-    ctx.font = `800 12px ${F_UI}`;
-    const pillW = ctx.measureText(name).width + 36, pillH = 30;
-    const py = cy + rowsTop + (rows.length - 1) * rowGap + 8;
+    ctx.font = `800 ${Math.round(12 * 1.2)}px ${F_UI}`;
+    const pillW = ctx.measureText(name).width + 36 * 1.2, pillH = 30 * 1.2;
+    const py = cy + rowsTop + (rows.length - 1) * rowGap + 8 * 1.2;
     roundRect(W / 2 - pillW / 2, py, pillW, pillH, pillH / 2, win ? C.teal : "#8B96A3", null, true);
     ctx.textAlign = "center"; ctx.fillStyle = "#FFFFFF";
-    ctx.fillText(name, W / 2, py + 20);
+    ctx.fillText(name, W / 2, py + 20 * 1.2);
   }
 
   if (win && r.best) {
     const b = r.best;
-    ctx.textAlign = "center"; ctx.fillStyle = b.newDaily ? "#D96A5A" : "#6C7A8A"; ctx.font = `800 9px ${F_UI}`;
-    ctx.fillText(b.newAll ? "NEW ALL-TIME BEST!" : b.newDaily ? "NEW BEST TODAY!" : `TODAY'S BEST ${clockString(b.daily)}  ·  ALL-TIME ${clockString(b.all)}`, W / 2, cy + chh - 66);
+    ctx.textAlign = "center"; ctx.fillStyle = b.newDaily ? "#D96A5A" : "#6C7A8A"; ctx.font = `800 ${Math.round(9 * 1.2)}px ${F_UI}`;
+    ctx.fillText(b.newAll ? "NEW ALL-TIME BEST!" : b.newDaily ? "NEW BEST TODAY!" : `TODAY'S BEST ${clockString(b.daily)}  ·  ALL-TIME ${clockString(b.all)}`, W / 2, cy + chh - 66 * 1.2);
   }
 
   // buttons: secondary (share) left, primary (play again) right — same order as the caught card
-  const bw = 202, bh = 40, gap = 9;
-  const bx0 = Math.round(W / 2 - bw - gap / 2), by = cy + chh - 54;
+  const bw = 202 * 1.2, bh = 40 * 1.2, gap = 9 * 1.2;
+  const bx0 = Math.round(W / 2 - bw - gap / 2), by = cy + chh - 54 * 1.2;
   resultBtns = [
     { id: "share", x: bx0, y: by, w: bw, h: bh },
     { id: "again", x: bx0 + bw + gap, y: by, w: bw, h: bh },
   ];
   const copied = performance.now() - (game.copiedAt || -1e9) < 1600;
-  roundRect(bx0, by, bw, bh, 6, "#FFFFFF", "rgba(38,52,70,0.14)", true);
-  ctx.textAlign = "center"; ctx.font = `800 13px ${F_UI}`;
+  roundRect(bx0, by, bw, bh, 6 * 1.2, "#FFFFFF", "rgba(38,52,70,0.14)", true);
+  ctx.textAlign = "center"; ctx.font = `800 ${Math.round(13 * 1.2)}px ${F_UI}`;
   ctx.fillStyle = copied ? "#1F9D6B" : C.navyDark;
-  ctx.fillText(copied ? "✓ COPIED!" : "SHARE RESULT", bx0 + bw / 2, by + 26);
-  roundRect(bx0 + bw + gap, by, bw, bh, 6, win ? C.teal : C.navyDark, null, true);
+  ctx.fillText(copied ? "✓ COPIED!" : "SHARE RESULT", bx0 + bw / 2, by + 26 * 1.2);
+  roundRect(bx0 + bw + gap, by, bw, bh, 6 * 1.2, win ? C.teal : C.navyDark, null, true);
   ctx.fillStyle = "#FFFFFF";
-  ctx.fillText("↻ PLAY AGAIN", bx0 + bw + gap + bw / 2, by + 26);
+  ctx.fillText("↻ PLAY AGAIN", bx0 + bw + gap + bw / 2, by + 26 * 1.2);
 
-  ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.font = `600 9px ${F_UI}`;
-  ctx.fillText(touchUI ? "TAP TO CHOOSE" : "C · COPY RESULT      SPACE · PLAY AGAIN", W / 2, cy + chh + 20);
+  ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.font = `600 ${Math.round(9 * 1.2)}px ${F_UI}`;
+  ctx.fillText(touchUI ? "TAP TO CHOOSE" : "C · COPY RESULT      SPACE · PLAY AGAIN", W / 2, cy + chh + 20 * 1.2);
   ctx.restore();
 }
 function renderWin() { renderResultCard(true); }
