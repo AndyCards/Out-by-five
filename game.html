@@ -1169,7 +1169,7 @@ const Sound = (() => {
   let ac = null, master, limiter, muffle, sfx, music, musicEQ, noiseBuf;
   const lastPlayed = {};
   let musicStep = 0, nextNote = 0, tempo = 116, musicPlaying = false, muffled = false;
-  let musicBaseGain = 0.13;             // ~20-30% of SFX's perceived loudness
+  let musicBaseGain = 0.35;             // ~50-60% of SFX's perceived loudness (increased for mobile)
 
   function init() {
     if (ac) return ac;
@@ -1211,9 +1211,14 @@ const Sound = (() => {
     // iOS: Web Audio is silenced by the ringer/mute switch unless the page declares a "playback" audio session
     try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}
     init();
-    if (ac && (ac.state === "suspended" || ac.state === "interrupted")) ac.resume().catch(() => {});
-    // iOS only treats touchend/click as an unlock gesture (pointerdown isn't enough) —
-    // prime the context with a silent one-sample buffer so it really starts
+    if (ac && (ac.state === "suspended" || ac.state === "interrupted")) {
+      ac.resume().catch(() => {});
+      // Force audio to start after resume
+      if (!unlock.primed) {
+        try { const b = ac.createBuffer(1, 1, 22050), n = ac.createBufferSource(); n.buffer = b; n.connect(ac.destination); n.start(0); unlock.primed = true; } catch (e) {}
+      }
+    }
+    // Always keep audio primed
     if (ac && !unlock.primed) {
       try { const b = ac.createBuffer(1, 1, 22050), n = ac.createBufferSource(); n.buffer = b; n.connect(ac.destination); n.start(0); unlock.primed = true; } catch (e) {}
     }
@@ -1224,7 +1229,7 @@ const Sound = (() => {
   function applySettings() {
     if (!ac) return;
     const t = ac.currentTime;
-    master.gain.setTargetAtTime(settings.sound ? 0.9 : 0, t, 0.02);
+    master.gain.setTargetAtTime(settings.sound ? 1.0 : 0, t, 0.02);  // Max volume
     music.gain.setTargetAtTime(musicTarget(), t, 0.05);
   }
 
@@ -1438,8 +1443,18 @@ const Sound = (() => {
 /* --------------------------- INPUT --------------------------- */
 // Mobile browsers only let audio start from specific gestures and suspend it when the tab is backgrounded:
 // keep trying on every kind of gesture (cheap no-op once running) and when the page comes back.
-["touchend", "pointerup", "click"].forEach(ev => window.addEventListener(ev, () => Sound.unlock(), { passive: true }));
-document.addEventListener("visibilitychange", () => { if (!document.hidden) Sound.unlock(); });
+["touchend", "pointerup", "click", "touchstart", "pointerdown"].forEach(ev => window.addEventListener(ev, () => Sound.unlock(), { passive: true }));
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    Sound.unlock();
+    // Resume music if game is in play mode
+    if (game.mode === "PLAY" && settings.music) Sound.startMusic();
+  }
+});
+// Aggressive unlock on page load and periodically (mobile browsers often suspend audio)
+Sound.unlock();
+window.addEventListener("load", () => { Sound.unlock(); }, { once: true });
+setInterval(() => { Sound.unlock(); if (game.mode === "PLAY" && settings.music) Sound.startMusic(); }, 3000);  // Keep audio active
 const keys = new Set();
 const pressed = new Set();  // one-shot this frame
 function pressKey(k) { if (!keys.has(k)) pressed.add(k); keys.add(k); }
@@ -2522,7 +2537,12 @@ function initializeGame() {
   seedLevel();
   seedEnemies();
   Sound.setMuffle(false);
+  Sound.unlock();  // Ensure audio context is unlocked before starting music
   Sound.startMusic();
+  // Ensure settings are enabled by default
+  if (settings.music === false) settings.music = true;
+  if (settings.haptics === false) settings.haptics = true;
+  Sound.applySettings();
   // Mark tutorial as seen
   try { localStorage.setItem("obf-tutorialSeen", "true"); } catch (e) {}
 }
