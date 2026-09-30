@@ -6942,51 +6942,74 @@ function renderCaught() {
   ctx.save();
   ctx.fillStyle = `rgba(70,63,150,${Math.min(0.45, t / 600)})`;
   ctx.fillRect(0, 0, W, H);
-  const cw = Math.min(430, W - 24);
+  // Typography: on touch the canvas is drawn at ~0.6-0.8 CSS px per logical unit, so type is
+  // specified in the CSS px we want to read and converted to logical units. Desktop keeps its
+  // original values. Card width/style stay; the card just grows taller for the bigger text.
+  const cssScale = (parseFloat(canvas.style.width) || W) / W;
+  const T = (cssPx, desk) => touchUI ? Math.round(cssPx / cssScale) : desk;
+  const hdrFont = T(12.5, 11), subFont = T(14.5, 11), lblFont = T(12.5, 9);
+  const valFont = T(14.5, 13), btnFont = T(15.5, 13), hintFont = T(12, 9);
+  let titleFont = T(21, 26);
+  const cw = Math.min(touchUI ? 500 : 430, W - 24);
   const cx = Math.round((W - cw) / 2);
-  const agendaX = cx + 100, agendaW = cw - agendaX + cx - 20;   // right padding to card edge
+  // value column starts after the widest label (desktop: fixed 100)
+  ctx.font = `800 ${lblFont}px ${F_UI}`;
+  const widestLbl = Math.max(...["WHEN", "LENGTH", "ORGANIZER", "AGENDA"].map(k => ctx.measureText(k).width));
+  const agendaX = touchUI ? cx + 20 + Math.ceil(widestLbl) + T(12, 12) : cx + 100;
+  const agendaW = cw - agendaX + cx - 20;   // right padding to card edge
 
   // wrap the agenda line first so the card can grow to fit it — long
   // office-sarcasm lines never spill past the card edge
-  ctx.font = `500 13px ${F_TEXT}`;
+  ctx.font = `500 ${valFont}px ${F_TEXT}`;
   const rowDefs = [
     ["WHEN", `${inv.at} PM`],
     ["LENGTH", inv.length],
     ["ORGANIZER", inv.org],
     ["AGENDA", inv.agenda],
-  ].map(([k, v]) => [k, wrapText(v, agendaW).slice(0, 3)]);
-  const rowsTop = 138, lineH = 16, rowPad = 7;
+  ].map(([k, v]) => [k, wrapText(v, agendaW).slice(0, touchUI ? 4 : 3)]);
+  const hb = touchUI ? Math.max(46, Math.round(hdrFont * 2.3)) : 46;   // header band height
+  // fit the title inside the card (touch only; desktop title is left as authored)
+  if (touchUI) {
+    ctx.font = `700 ${titleFont}px ${F_FUN}`;
+    while (titleFont > T(17, 26) && ctx.measureText(inv.title).width > cw - 40) { titleFont -= 1; ctx.font = `700 ${titleFont}px ${F_FUN}`; }
+  }
+  const titleY = hb + Math.round(titleFont * 1.7);
+  const subY = titleY + (touchUI ? Math.round(subFont * 1.25 + 8) : 22);
+  const rowsTop = subY + (touchUI ? Math.round(subFont * 1.1) + 14 : 26);
+  const lineH = touchUI ? Math.round(valFont * 1.3) : 16, rowPad = touchUI ? T(9, 7) : 7;
   let rowsH = 0;
   for (const [, ls] of rowDefs) rowsH += ls.length * lineH + rowPad;
-  const footerH = 68;   // reserved so the card doesn't resize when the CTA row appears
+  const bh = touchUI ? T(46, 42) : 42;
+  const footerH = bh + 26;   // reserved so the card doesn't resize when the CTA row appears
   const chh = rowsTop + rowsH + 16 + footerH;
 
   const slide = Math.max(0, 1 - t / 280);
-  const cy = Math.round((H - chh) / 2 + 16 + slide * 60);
+  const baseCy = touchUI ? Math.max(8, Math.min((H - chh) / 2 + 16, H - chh - (hintFont + 26))) : (H - chh) / 2 + 16;
+  const cy = Math.round(baseCy + slide * 60);
   ctx.globalAlpha = Math.min(1, t / 200);
   roundRect(cx, cy, cw, chh, 8, "#FFFFFF", null, true);
 
   // Teams-style purple header band
   const purple = inv.kind === "director" ? "#464775" : inv.kind === "meeting" ? "#6264A7" : "#5B5FC7";
-  ctx.save(); ctx.beginPath(); ctx.rect(cx, cy, cw, 46); ctx.clip();
+  ctx.save(); ctx.beginPath(); ctx.rect(cx, cy, cw, hb); ctx.clip();
   roundRect(cx, cy, cw, 60, 8, purple); ctx.restore();
-  drawCalendarIcon(cx + 26, cy + 23, 26);
-  ctx.fillStyle = "#FFFFFF"; ctx.font = `800 11px ${F_UI}`; ctx.textAlign = "left";
-  ctx.fillText("QUICK MEETING · STARTING NOW", cx + 52, cy + 27);
+  drawCalendarIcon(cx + 26, cy + hb / 2, 26);
+  ctx.fillStyle = "#FFFFFF"; ctx.font = `800 ${hdrFont}px ${F_UI}`; ctx.textAlign = "left";
+  ctx.fillText("QUICK MEETING · STARTING NOW", cx + 52, cy + Math.round(hb / 2 + hdrFont * 0.36));
 
   // meeting title
-  ctx.fillStyle = C.navyDark; ctx.font = `700 26px ${F_FUN}`;
-  ctx.fillText(inv.title, cx + 20, cy + 90);
+  ctx.fillStyle = C.navyDark; ctx.font = `700 ${touchUI ? titleFont : 26}px ${F_FUN}`;
+  ctx.fillText(inv.title, cx + 20, cy + titleY);
 
   // "you're in this meeting now" — not a clickable link, just atmosphere text
-  ctx.font = `500 11px ${F_TEXT}`; ctx.fillStyle = "#8B96A3";
-  ctx.fillText("You're in this one. (No escape.)", cx + 20, cy + 112);
+  ctx.font = `500 ${subFont}px ${F_TEXT}`; ctx.fillStyle = "#8B96A3";
+  ctx.fillText("You're in this one. (No escape.)", cx + 20, cy + subY);
 
   // every row wraps inside the card; the card height was sized from these lines
   let ry = cy + rowsTop;
   for (const [k, ls] of rowDefs) {
-    ctx.font = `800 9px ${F_UI}`; ctx.fillStyle = purple; ctx.fillText(k, cx + 20, ry);
-    ctx.font = `500 13px ${F_TEXT}`; ctx.fillStyle = "#1B2634";
+    ctx.font = `800 ${lblFont}px ${F_UI}`; ctx.fillStyle = purple; ctx.fillText(k, cx + 20, ry);
+    ctx.font = `500 ${valFont}px ${F_TEXT}`; ctx.fillStyle = "#1B2634";
     ls.forEach((l, i) => ctx.fillText(l, agendaX, ry + i * lineH));
     ry += ls.length * lineH + rowPad;
   }
@@ -7010,7 +7033,11 @@ function renderCaught() {
   // once the scene has settled, hand control back to the player instead of
   // auto-resuming — Continue picks up from the checkpoint, Restart starts fresh
   if (game.caughtHold) {
-    const bw = 198, bh = 42, gap = 10;
+    let bw = 198; const gap = 10;
+    if (touchUI) {   // buttons grow with their text (never below the desktop width)
+      ctx.font = `800 ${btnFont}px ${F_UI}`;
+      bw = Math.min(Math.floor((cw - 20 - gap) / 2), Math.max(198, Math.ceil(ctx.measureText("↻ RESTART SHIFT").width) + 32));
+    }
     const bx0 = Math.round(W / 2 - bw - gap / 2), by = cy + chh - 16 - bh;
     caughtBtns = [
       { id: "restart", x: bx0, y: by, w: bw, h: bh },
@@ -7020,14 +7047,14 @@ function renderCaught() {
     roundRect(bx0, by, bw, bh, 6, "#FFFFFF", purple, false);
     ctx.strokeStyle = purple; ctx.lineWidth = 2.5;
     ctx.beginPath(); ctx.roundRect(bx0 + 1.25, by + 1.25, bw - 2.5, bh - 2.5, 4.75); ctx.stroke();
-    ctx.fillStyle = purple; ctx.font = `800 13px ${F_UI}`; ctx.textAlign = "center";
-    ctx.fillText("↻ RESTART SHIFT", bx0 + bw / 2, by + 27);
+    ctx.fillStyle = purple; ctx.font = `800 ${btnFont}px ${F_UI}`; ctx.textAlign = "center";
+    ctx.fillText("↻ RESTART SHIFT", bx0 + bw / 2, by + (touchUI ? Math.round(bh / 2 + btnFont * 0.36) : 27));
     // primary action: purple filled with white text
     roundRect(bx0 + bw + gap, by, bw, bh, 6, purple, null, true);
-    ctx.fillStyle = "#FFFFFF"; ctx.font = `800 13px ${F_UI}`; ctx.textAlign = "center";
-    ctx.fillText("▶ CONTINUE", bx0 + bw + gap + bw / 2, by + 27);
-    ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.font = `600 9px ${F_UI}`;
-    ctx.fillText(touchUI ? "TAP TO CHOOSE" : "SPACE · CONTINUE      R · RESTART", W / 2, cy + chh + 20);
+    ctx.fillStyle = "#FFFFFF"; ctx.font = `800 ${btnFont}px ${F_UI}`; ctx.textAlign = "center";
+    ctx.fillText("▶ CONTINUE", bx0 + bw + gap + bw / 2, by + (touchUI ? Math.round(bh / 2 + btnFont * 0.36) : 27));
+    ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.font = `600 ${hintFont}px ${F_UI}`;
+    ctx.fillText(touchUI ? "TAP TO CHOOSE" : "SPACE · CONTINUE      R · RESTART", W / 2, cy + chh + (touchUI ? hintFont + 12 : 20));
   }
   ctx.restore();
 }
