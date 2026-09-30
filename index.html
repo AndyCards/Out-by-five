@@ -7170,6 +7170,75 @@ function renderCaught() {
   ctx.restore();
 }
 
+/* Touch / landscape result card: two columns (headline + score | stats) with the actions across the bottom,
+   so the card uses the screen's width instead of a tall portrait stack. */
+function drawResultWide(win, r, rows, title, badge) {
+  const cw = Math.min(840, W - 40), ch = 392;
+  const cx = Math.round((W - cw) / 2), cy = Math.round((H - ch) / 2) - 10;
+  drawConfetti();
+  roundRect(cx, cy, cw, ch, 10, "#FBF8F1", null, true);
+  modalBox = { w: cw, h: ch + 40 };
+  const pad = 40, colW = 320, lx = cx + pad, lcx = lx + colW / 2;
+  const rx0 = cx + pad + colW + 44, rx1 = cx + cw - pad;
+
+  // headline + subtitle (wrapped, left column)
+  ctx.textAlign = "center"; ctx.fillStyle = C.navyDark; ctx.font = `800 ${win ? 40 : 34}px ${F_FUN}`;
+  const tl = wrapText(title, colW + 10);
+  tl.forEach((l, i) => ctx.fillText(l, lcx, cy + 54 + i * (win ? 42 : 38)));
+  let y = cy + 54 + (tl.length - 1) * (win ? 42 : 38) + 28;
+  ctx.fillStyle = "#6C7A8A"; ctx.font = `500 15px ${F_TEXT}`;
+  wrapText(win ? (r.winSubtitle || "Freedom tastes sweet.") : (r.loseSubtitle || "Better luck next time."), colW).forEach((l, i) => ctx.fillText(l, lcx, y + i * 20));
+
+  // escape score
+  const score = (r.score ?? game.score ?? 0);
+  const sy = cy + 196;
+  ctx.fillStyle = "#8B96A3"; ctx.font = `700 12px ${F_UI}`; ctx.fillText("ESCAPE SCORE", lcx, sy - 26);
+  ctx.fillStyle = win ? C.teal : C.navyDark; ctx.font = `800 52px ${F_UI}`;
+  ctx.fillText(score.toLocaleString("en-US"), lcx, sy + 20);
+  if (win && r.noMeetings) {
+    ctx.fillStyle = "#1F9D6B"; ctx.font = `800 11px ${F_UI}`;
+    ctx.fillText(`NO MEETINGS +${SCORE.noMeetings.pts.toLocaleString("en-US")}`, lcx, sy + 40);
+  }
+  let by2 = sy + 52;
+  if (badge) {
+    const [name] = badge;
+    ctx.font = `800 14px ${F_UI}`;
+    const pw = ctx.measureText(name).width + 40, ph = 32;
+    roundRect(lcx - pw / 2, by2, pw, ph, ph / 2, win ? C.teal : "#8B96A3", null, true);
+    ctx.fillStyle = "#FFFFFF"; ctx.fillText(name, lcx, by2 + 21);
+    by2 += ph + 14;
+  }
+  if (win && r.best) {
+    const b = r.best;
+    ctx.fillStyle = b.newDaily ? "#D96A5A" : "#6C7A8A"; ctx.font = `800 11px ${F_UI}`;
+    ctx.fillText(b.newAll ? "NEW ALL-TIME BEST!" : b.newDaily ? "NEW BEST TODAY!" : `TODAY'S BEST ${clockString(b.daily)}  ·  ALL-TIME ${clockString(b.all)}`, lcx, by2 + 4);
+  }
+
+  // column divider + stat rows (right column)
+  ctx.fillStyle = "rgba(38,52,70,0.10)"; ctx.fillRect(rx0 - 22, cy + 34, 1, 246);
+  const gap = Math.min(46, 252 / rows.length), top = cy + 44 + (gap > 40 ? 6 : 0);
+  rows.forEach(([label, value], i) => {
+    const yy = top + i * gap + gap * 0.62;
+    ctx.textAlign = "left"; ctx.fillStyle = "#3A4658"; ctx.font = `500 16px ${F_TEXT}`; ctx.fillText(label, rx0, yy);
+    ctx.textAlign = "right"; ctx.fillStyle = C.navyDark; ctx.font = `800 18px ${F_UI}`; ctx.fillText(value, rx1, yy);
+    ctx.fillStyle = "rgba(38,52,70,0.12)"; ctx.fillRect(rx0, yy + 12, rx1 - rx0, 1);
+  });
+
+  // actions across the bottom
+  const g = 14, bw = (cw - pad * 2 - g) / 2, bh = 54, by = cy + ch - 22 - bh;
+  resultBtns = [
+    { id: "share", x: cx + pad, y: by, w: bw, h: bh },
+    { id: "again", x: cx + pad + bw + g, y: by, w: bw, h: bh },
+  ];
+  const copied = performance.now() - (game.copiedAt || -1e9) < 1600;
+  roundRect(cx + pad, by, bw, bh, 8, "#FFFFFF", "rgba(38,52,70,0.14)", true);
+  ctx.textAlign = "center"; ctx.font = `800 16px ${F_UI}`;
+  ctx.fillStyle = copied ? "#1F9D6B" : C.navyDark;
+  ctx.fillText(copied ? "✓ COPIED!" : "SHARE RESULT", cx + pad + bw / 2, by + 33);
+  roundRect(cx + pad + bw + g, by, bw, bh, 8, win ? C.teal : C.navyDark, null, true);
+  ctx.fillStyle = "#FFFFFF"; ctx.fillText("↻ PLAY AGAIN", cx + pad + bw + g + bw / 2, by + 33);
+}
+
 function renderResultCard(win) {
   const r = game.result || { titles: [] };
   ctx.save();
@@ -7197,6 +7266,7 @@ function renderResultCard(win) {
   const scoreY = win ? 150 : 124 * 1.2;               // win subtitle runs two lines, so score sits a little lower
   const rowsTop = win ? 205 : 172 * 1.2, rowGap = win ? 34 : 45;
   const badge = (r.titles && r.titles[0]) || null;
+  if (touchUI) { drawResultWide(win, r, rows, title, badge); ctx.restore(); return; }
   const footer = 92 * 1.2;
   const chh = rowsTop + rows.length * rowGap + (badge ? 50 : 16) + footer - 36;
   const cy = Math.round((H - chh) / 2) - 8;
