@@ -7023,7 +7023,7 @@ function renderCaught() {
     ["ORGANIZER", inv.org],
     ["AGENDA", inv.agenda],
   ].map(([k, v]) => [k, wrapText(v, agendaW).slice(0, 3)]);
-  const rowsTop = 138, lineH = 16, rowPad = 7;
+  const rowsTop = 138, lineH = 18, rowPad = 9;
   let rowsH = 0;
   for (const [, ls] of rowDefs) rowsH += ls.length * lineH + rowPad;
   const footerH = 68;   // reserved so the card doesn't resize when the CTA row appears
@@ -7125,7 +7125,7 @@ function renderResultCard(win) {
   ];
   const title = win ? "YOU'VE MADE IT!" : (r.loseMsg || LOSE_MESSAGES[0]);
   const scoreY = win ? 141 : 124;               // win subtitle runs two lines, so score sits a little lower
-  const rowsTop = win ? 189 : 172, rowGap = win ? 37 : 42;
+  const rowsTop = win ? 189 : 172, rowGap = win ? 40 : 45;
   const badge = (r.titles && r.titles[0]) || null;
   const footer = 92;
   const chh = rowsTop + rows.length * rowGap + (badge ? 50 : 16) + footer - 36;
