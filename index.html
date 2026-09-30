@@ -63,7 +63,8 @@
      viewport and the overflow is cropped, never stretched. The crop is anchored
      to the bottom so the floor/feet stay in view and only sky is trimmed. */
   .wrap.cover { align-items: flex-end; }
-  #game {
+  #game:focus, #game:focus-visible { outline: none; }
+  #game { outline: none; -webkit-tap-highlight-color: transparent;
     flex: none;
     background: #EAF3F6;
     image-rendering: pixelated;
