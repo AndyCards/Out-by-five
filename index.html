@@ -1537,6 +1537,7 @@ canvas.addEventListener("pointerdown", (ev) => {
   if (game.mode === "TITLE") { tapHaptic(); requestMobileFullscreen(); startGame(); return; }
   if (game.mode === "WIN" || game.mode === "LOSE") {
     const b = resultBtns.find(b => hit(b, p));
+    if (b && b.id === "share") { tapHaptic(); copyResult(); return; }
     if (b && b.id === "again") { tapHaptic(); startGame(); return; }
     return;   // clicks elsewhere on the results screen do nothing (no accidental restarts)
   }
@@ -2569,6 +2570,7 @@ function update(dtMs) {
   }
   if (game.mode === "WIN" || game.mode === "LOSE") {
     if (keyPressed(" ", "enter")) startGame();
+    else if (keyPressed("c")) copyResult();
     pressed.clear();
     return;
   }
@@ -7223,11 +7225,18 @@ function drawResultWide(win, r, rows, title, badge) {
   });
 
   // actions across the bottom
-  const bw = 380, bh = 54, bx = Math.round(W / 2 - bw / 2), by = cy + ch - 22 - bh;
-  resultBtns = [{ id: "again", x: bx, y: by, w: bw, h: bh }];
-  roundRect(bx, by, bw, bh, 8, win ? C.teal : C.navyDark, null, true);
+  const g = 14, bw = (cw - pad * 2 - g) / 2, bh = 54, by = cy + ch - 22 - bh;
+  resultBtns = [
+    { id: "share", x: cx + pad, y: by, w: bw, h: bh },
+    { id: "again", x: cx + pad + bw + g, y: by, w: bw, h: bh },
+  ];
+  const copied = performance.now() - (game.copiedAt || -1e9) < 1600;
+  roundRect(cx + pad, by, bw, bh, 8, "#FFFFFF", "rgba(38,52,70,0.14)", true);
   ctx.textAlign = "center"; ctx.font = `800 16px ${F_UI}`;
-  ctx.fillStyle = "#FFFFFF"; ctx.fillText("↻ PLAY AGAIN", bx + bw / 2, by + 33);
+  ctx.fillStyle = copied ? "#1F9D6B" : C.navyDark;
+  ctx.fillText(copied ? "✓ COPIED!" : "SHARE RESULT", cx + pad + bw / 2, by + 33);
+  roundRect(cx + pad + bw + g, by, bw, bh, 8, win ? C.teal : C.navyDark, null, true);
+  ctx.fillStyle = "#FFFFFF"; ctx.fillText("↻ PLAY AGAIN", cx + pad + bw + g + bw / 2, by + 33);
 }
 
 function renderResultCard(win) {
@@ -7317,15 +7326,23 @@ function renderResultCard(win) {
   }
 
   // buttons: secondary (share) left, primary (play again) right — same order as the caught card
-  const bw = 300, bh = 40 * 1.2, bx0 = Math.round(W / 2 - bw / 2), by = cy + chh - 54 * 1.2;
-  resultBtns = [{ id: "again", x: bx0, y: by, w: bw, h: bh }];
-  roundRect(bx0, by, bw, bh, 6 * 1.2, win ? C.teal : C.navyDark, null, true);
+  const bw = 202 * 1.2, bh = 40 * 1.2, gap = 9 * 1.2;
+  const bx0 = Math.round(W / 2 - bw - gap / 2), by = cy + chh - 54 * 1.2;
+  resultBtns = [
+    { id: "share", x: bx0, y: by, w: bw, h: bh },
+    { id: "again", x: bx0 + bw + gap, y: by, w: bw, h: bh },
+  ];
+  const copied = performance.now() - (game.copiedAt || -1e9) < 1600;
+  roundRect(bx0, by, bw, bh, 6 * 1.2, "#FFFFFF", "rgba(38,52,70,0.14)", true);
   ctx.textAlign = "center"; ctx.font = `800 ${Math.round(13 * 1.2)}px ${F_UI}`;
+  ctx.fillStyle = copied ? "#1F9D6B" : C.navyDark;
+  ctx.fillText(copied ? "✓ COPIED!" : "SHARE RESULT", bx0 + bw / 2, by + 26 * 1.2);
+  roundRect(bx0 + bw + gap, by, bw, bh, 6 * 1.2, win ? C.teal : C.navyDark, null, true);
   ctx.fillStyle = "#FFFFFF";
-  ctx.fillText("↻ PLAY AGAIN", bx0 + bw / 2, by + 26 * 1.2);
+  ctx.fillText("↻ PLAY AGAIN", bx0 + bw + gap + bw / 2, by + 26 * 1.2);
 
   ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.font = `600 ${Math.round(9 * 1.2)}px ${F_UI}`;
-  ctx.fillText(touchUI ? "TAP TO PLAY AGAIN" : "SPACE · PLAY AGAIN", W / 2, cy + chh + 20 * 1.2);
+  ctx.fillText(touchUI ? "TAP TO CHOOSE" : "C · COPY RESULT      SPACE · PLAY AGAIN", W / 2, cy + chh + 20 * 1.2);
   ctx.restore();
 }
 function renderWin() { renderResultCard(true); }
