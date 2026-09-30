@@ -118,7 +118,7 @@
     padding-bottom: max(var(--edge), env(safe-area-inset-bottom, 0px));
     justify-content: space-between; align-items: flex-end;
   }
-  body.play-touch #touchUI { display: flex; }
+  body.ctl-on #touchUI { display: flex; }
   body.play-touch #hudCanvas { display: block; }
   .tpad { display: grid; gap: var(--gap); pointer-events: none; }
   .tpad.left  { grid-template-columns: repeat(3, var(--btn)); grid-template-rows: repeat(2, var(--btn)); }
@@ -859,7 +859,11 @@ const hudCtx = hudCanvas.getContext("2d");
 const safeProbe = document.getElementById("safeProbe");
 const wrapEl = document.querySelector(".wrap");
 // HUD space: origin = top-left of the safe area, unit = hudScale CSS px.
-const hudView = { ox: 0, oy: 0, scale: 1, w: W, h: H, dpr: 1 };
+const hudView = { ox: 0, oy: 0, scale: 1, w: W, h: H, dpr: 1, ins: { t: 0, r: 0, b: 0, l: 0 } };
+// Modal overlay space (caught card, pause menu): the full W x H frame fitted (contain) inside the
+// safe area of the VIEWPORT, drawn on the viewport layer above the game frame — never on the game canvas.
+const overlayView = { sc: 1, ox: 0, oy: 0 };
+let overlayActive = false;
 let HUD_W = W;   // logical width renderHUD lays out in (W in contain mode)
 
 function readSafeInsets() {
@@ -880,7 +884,7 @@ function fitHudCanvas() {
   const ins = readSafeInsets();
   const scale = Math.max(0.75, Math.min(1.1, availH / 430));   // HUD size follows the screen, not the canvas
   hudView.scale = scale; hudView.dpr = dpr;
-  hudView.ox = ins.l; hudView.oy = ins.t;
+  hudView.ox = ins.l; hudView.oy = ins.t; hudView.ins = ins;
   hudView.w = Math.max(320, (availW - ins.l - ins.r) / scale);
   hudView.h = Math.max(200, (availH - ins.t - ins.b) / scale);
 }
@@ -1421,7 +1425,7 @@ function menuChipHit(ev, p) {
   if (layoutMode !== "cover") return hit(MENU_CHIP, p);
   // HUD lives in viewport space: convert the pointer into HUD units and pad the target
   const hx = (ev.clientX - hudView.ox) / hudView.scale, hy = (ev.clientY - hudView.oy) / hudView.scale;
-  const r = { x: HUD_W - 14 - 56 - 12, y: 14 - 12, w: 56 + 24, h: 56 + 24 };
+  const r = { x: hudView.w - 14 - 56 - 12, y: 14 - 12, w: 56 + 24, h: 56 + 24 };
   return hit(r, { x: hx, y: hy });
 }
 const TITLE_SETTINGS = { x: W - 152, y: 18, w: 134, h: 34 };
@@ -1431,6 +1435,9 @@ const TITLE_HOWTO = { x: 18, y: 18, w: 134, h: 34 };
 let howtoOpen = false;
 let tutorialPendingStart = false;  // flag: tutorial was shown before starting game
 const touchKeys = new Map();
+function overlayPoint(ev) {
+  return { x: (ev.clientX - overlayView.ox) / overlayView.sc, y: (ev.clientY - overlayView.oy) / overlayView.sc };
+}
 function canvasPoint(ev) {
   const r = canvas.getBoundingClientRect();
   return { x: (ev.clientX - r.left) * W / r.width, y: (ev.clientY - r.top) * H / r.height };
@@ -1470,7 +1477,7 @@ canvas.addEventListener("pointerdown", (ev) => {
   canvas.focus();
   Sound.unlock();
   if (ev.pointerType === "touch") touchUI = true;
-  const p = canvasPoint(ev);
+  const p = overlayActive ? overlayPoint(ev) : canvasPoint(ev);
   // every touch UI interaction gets a light tap of haptic feedback so the
   // screen feels responsive even without the visual press state a mouse gets
   const tapHaptic = () => { if (touchUI) Haptics.buzz(HAPTIC.light); };
@@ -3621,13 +3628,21 @@ function lose() {
 function render() {
   // Pick the layout for this frame. Touch gameplay uses the cover-scaled world +
   // viewport-fixed HUD/controls; every other screen keeps the letterboxed full frame.
-  const wantCover = touchUI && game.mode === "PLAY" && !menu.open && !howtoOpen;
+  // The whole play session (playing, caught, paused) keeps ONE layout: the cover-scaled game frame.
+  // Modals never change it; they are drawn on the viewport layer above it (see overlay pass below).
+  const wantCover = touchUI && (game.mode === "PLAY" || game.mode === "CAUGHT" || game.mode === "PAUSED");
   const wantMode = wantCover ? "cover" : "contain";
   if (wantMode !== layoutMode) {
     layoutMode = wantMode;
     fitCanvasResolution();
     document.body.classList.toggle("play-touch", wantCover);
-    if (!wantCover) { releaseAllTouchButtons(); hudCtx.setTransform(1, 0, 0, 1, 0, 0); hudCtx.clearRect(0, 0, hudCanvas.width, hudCanvas.height); }
+    if (!wantCover) { hudCtx.setTransform(1, 0, 0, 1, 0, 0); hudCtx.clearRect(0, 0, hudCanvas.width, hudCanvas.height); }
+  }
+  // controls only accept input during live play; hiding them never changes any dimensions
+  const ctlOn = wantCover && game.mode === "PLAY" && !menu.open && !howtoOpen;
+  if (ctlOn !== document.body.classList.contains("ctl-on")) {
+    document.body.classList.toggle("ctl-on", ctlOn);
+    if (!ctlOn) releaseAllTouchButtons();
   }
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, W, H);
@@ -3656,11 +3671,34 @@ function render() {
     HUD_W = W;
     renderHUD();
   }
+  overlayActive = false;
+  if (wantCover && (game.mode === "CAUGHT" || menu.open || howtoOpen)) {
+    // Layer order: game frame (main canvas) -> HUD -> purple/dim overlay -> modal, the last three on the
+    // viewport layer. The modal is fitted into the safe area; its dim bleeds to every screen edge.
+    overlayActive = true;
+    const vw = window.innerWidth, vh = window.innerHeight, ins = hudView.ins, dpr = hudView.dpr;
+    const aw = vw - ins.l - ins.r, ah = vh - ins.t - ins.b;
+    const sc = Math.min(aw / W, ah / H);
+    overlayView.sc = sc; overlayView.ox = ins.l + (aw - W * sc) / 2; overlayView.oy = ins.t + (ah - H * sc) / 2;
+    hudCtx.setTransform(dpr * sc, 0, 0, dpr * sc, overlayView.ox * dpr, overlayView.oy * dpr);
+    hudCtx.imageSmoothingEnabled = false;
+    const bl = -overlayView.ox / sc, bt = -overlayView.oy / sc, bW = vw / sc, bH = vh / sc;
+    const origFill = hudCtx.fillRect;
+    hudCtx.fillRect = function (x, y, w, h) {   // the modals' full-frame dim becomes a full-screen dim
+      return (x === 0 && y === 0 && w === W && h === H) ? origFill.call(this, bl, bt, bW, bH) : origFill.call(this, x, y, w, h);
+    };
+    ctx = hudCtx;
+    try {
+      if (game.mode === "CAUGHT") renderCaught();
+      if (menu.open) renderMenu(); else if (howtoOpen) renderHowToPlay();
+    } finally { ctx = mainCtx; delete hudCtx.fillRect; }
+  } else if (!wantCover) {
   if (game.mode === "CAUGHT") renderCaught();
   if (game.mode === "EXIT") renderRide();
   if (game.mode === "WIN") renderWin();
   if (game.mode === "LOSE") renderLose();
   if (menu.open) renderMenu();
+  }
 
   /* Update blur background: copy the current game frame to the blur canvas,
      scale it to cover the entire viewport (maintaining aspect ratio), and apply
