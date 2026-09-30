@@ -1116,10 +1116,40 @@ const HAPTIC = {
   double: [16, 45, 16],
   medium: 32,
 };
+/* iOS Safari has no navigator.vibrate. iOS 17.4+ fires a light system haptic when a
+   <input type=checkbox switch> is toggled, so a hidden one is clicked as a best-effort fallback.
+   It is only honoured while iOS still considers us inside a touch, so some events may stay silent. */
+const iosHaptic = (() => {
+  let label = null;
+  function ensure() {
+    if (label) return label;
+    if (!document.body) return null;
+    const input = document.createElement("input");
+    input.type = "checkbox"; input.setAttribute("switch", ""); input.id = "hapticSwitch"; input.tabIndex = -1;
+    label = document.createElement("label");
+    label.htmlFor = "hapticSwitch"; label.setAttribute("aria-hidden", "true");
+    label.style.cssText = "position:fixed;left:-99px;top:-99px;width:1px;height:1px;opacity:0;pointer-events:none;";
+    label.appendChild(input);
+    document.body.appendChild(label);
+    return label;
+  }
+  return function (pattern) {
+    const l = ensure(); if (!l) return;
+    const p = Array.isArray(pattern) ? pattern : [pattern];
+    let t = 0;
+    p.forEach((d, i) => { if (i % 2 === 0) { setTimeout(() => { try { l.click(); } catch (e) {} }, t); } t += d; });
+  };
+})();
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const Haptics = {
   lastByName: {},
   buzz(pattern, force = false) {
-    if (!canVibrate || (!settings.haptics && !force)) return;
+    if ((!canVibrate && !isIOS) || (!settings.haptics && !force)) return;
+    if (!canVibrate) {
+      const t = performance.now(), key = Array.isArray(pattern) ? pattern.join(",") : pattern;
+      if (!force && this.lastByName[key] && t - this.lastByName[key] < 80) return;
+      this.lastByName[key] = t; iosHaptic(pattern); return;
+    }
     const t = performance.now();
     const key = Array.isArray(pattern) ? pattern.join(",") : pattern;
     if (!force && this.lastByName[key] && t - this.lastByName[key] < 80) return;   // dedupe same-event re-fires
@@ -1178,8 +1208,15 @@ const Sound = (() => {
     return ac;
   }
   function unlock() {
+    // iOS: Web Audio is silenced by the ringer/mute switch unless the page declares a "playback" audio session
+    try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}
     init();
-    if (ac && ac.state === "suspended") ac.resume();
+    if (ac && (ac.state === "suspended" || ac.state === "interrupted")) ac.resume().catch(() => {});
+    // iOS only treats touchend/click as an unlock gesture (pointerdown isn't enough) —
+    // prime the context with a silent one-sample buffer so it really starts
+    if (ac && !unlock.primed) {
+      try { const b = ac.createBuffer(1, 1, 22050), n = ac.createBufferSource(); n.buffer = b; n.connect(ac.destination); n.start(0); unlock.primed = true; } catch (e) {}
+    }
   }
   function musicTarget() {
     return settings.music ? (muffled ? musicBaseGain * 1.6 : musicBaseGain) : 0;
@@ -1399,6 +1436,10 @@ const Sound = (() => {
 })();
 
 /* --------------------------- INPUT --------------------------- */
+// Mobile browsers only let audio start from specific gestures and suspend it when the tab is backgrounded:
+// keep trying on every kind of gesture (cheap no-op once running) and when the page comes back.
+["touchend", "pointerup", "click"].forEach(ev => window.addEventListener(ev, () => Sound.unlock(), { passive: true }));
+document.addEventListener("visibilitychange", () => { if (!document.hidden) Sound.unlock(); });
 const keys = new Set();
 const pressed = new Set();  // one-shot this frame
 function pressKey(k) { if (!keys.has(k)) pressed.add(k); keys.add(k); }
