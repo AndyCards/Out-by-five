@@ -76,61 +76,6 @@
        never intercept a drag/hold as a page gesture (scroll, zoom, callout). */
     touch-action: none;
   }
-  /* ---- HTML touch-control overlays (left/right margin panels) ---- */
-  #ctrlLeft, #ctrlRight {
-    position: fixed; top: 0; bottom: 0;
-    display: none;
-    overflow: hidden;
-    flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 6px;
-    z-index: 10;
-    pointer-events: none; /* panels don't eat clicks; buttons do */
-    width: calc((100vw - var(--game-w, 0px)) / 2);
-  }
-  #ctrlLeft  { left: 0; }
-  #ctrlRight { right: 0; }
-  @media (pointer: coarse) {
-    #ctrlLeft, #ctrlRight { display: flex; }
-  }
-  /* d-pad row helper — kept for any future multi-button rows */
-  .ctrl-row {
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-  }
-  /* Both panels lay out as a single vertical column */
-  #ctrlLeft, #ctrlRight {
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 8px 4px;
-  }
-  .ctrl-btn {
-    pointer-events: auto;
-    touch-action: none;
-    width: 52px; height: 52px;
-    display: flex; align-items: center; justify-content: center;
-    background: rgba(30, 40, 60, 0.72);
-    border: 2px solid rgba(30, 40, 60, 0.5);
-    border-radius: 14px;
-    color: #fff;
-    font-size: 18px; font-weight: 800;
-    cursor: pointer;
-    -webkit-user-select: none; user-select: none;
-    transition: background 0.07s, border-color 0.07s;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
-    flex-shrink: 0;
-  }
-  .ctrl-btn.jump {
-    width: 64px; height: 64px;
-    border-radius: 20px;
-    font-size: 11px; font-weight: 900;
-    letter-spacing: 0.02em;
-  }
-  .ctrl-btn.held, .ctrl-btn:active {
-    background: #3EC9C4;
-    border-color: #3EC9C4;
-  }
   .hint {
     position: fixed; bottom: 8px; left: 0; right: 0;
     text-align: center; font-size: 11px; letter-spacing: 0.12em;
@@ -169,18 +114,6 @@
 <canvas id="gameBlur" width="1104" height="621"></canvas>
 <div class="wrap">
   <canvas id="game" width="1104" height="621" tabindex="0"></canvas>
-</div>
-<!-- HTML touch controls: live in the letterbox margins outside the canvas -->
-<div id="ctrlLeft">
-  <button class="ctrl-btn" data-key="arrowup"    aria-label="Up">▲</button>
-  <button class="ctrl-btn" data-key="arrowleft"  aria-label="Left">◀</button>
-  <button class="ctrl-btn" data-key="arrowdown"  aria-label="Down">▼</button>
-  <button class="ctrl-btn" data-key="arrowright" aria-label="Right">▶</button>
-</div>
-<div id="ctrlRight">
-  <button class="ctrl-btn jump" data-key=" " aria-label="Jump">JUMP</button>
-  <button class="ctrl-btn" data-key="e" aria-label="Use">E</button>
-  <button class="ctrl-btn" data-key="f" aria-label="Throw">F</button>
 </div>
 <div id="rotatePrompt">
   <div class="icon">📱</div>
@@ -867,42 +800,6 @@ window.addEventListener("resize", fitCanvasResolution);
 window.addEventListener("orientationchange", fitCanvasResolution);
 if (window.visualViewport) window.visualViewport.addEventListener("resize", fitCanvasResolution);
 
-/* ---- HTML touch-control overlay wiring ---- */
-const ctrlLeft  = document.getElementById("ctrlLeft");
-const ctrlRight = document.getElementById("ctrlRight");
-
-function updateCtrlVisibility() {
-  const show = touchUI && game.mode === "PLAY";
-  if (ctrlLeft)  ctrlLeft.style.display  = show ? "flex" : "none";
-  if (ctrlRight) ctrlRight.style.display = show ? "flex" : "none";
-}
-
-// Wire each HTML button so it presses/releases the mapped key
-document.querySelectorAll(".ctrl-btn").forEach(btn => {
-  const key = btn.dataset.key;
-  if (!key) return;
-
-  function onDown(ev) {
-    ev.preventDefault();
-    touchUI = true;
-    Sound.unlock();
-    if (game.mode !== "PLAY") return;
-    Haptics.buzz(HAPTIC.light);
-    pressKey(key);
-    touchKeys.set(ev.pointerId, key);
-    btn.classList.add("held");
-    try { btn.setPointerCapture(ev.pointerId); } catch (e) {}
-  }
-  function onUp(ev) {
-    ev.preventDefault();
-    const k = touchKeys.get(ev.pointerId);
-    if (k) { keys.delete(k); touchKeys.delete(ev.pointerId); }
-    btn.classList.remove("held");
-  }
-  btn.addEventListener("pointerdown",   onDown, { passive: false });
-  btn.addEventListener("pointerup",     onUp,   { passive: false });
-  btn.addEventListener("pointercancel", onUp,   { passive: false });
-});
 
 /* Update blur background every frame: copy the current game frame to the blur
    canvas and scale it to cover the full viewport while maintaining aspect ratio.
@@ -1403,27 +1300,21 @@ let touchUI = (typeof matchMedia === "function" && matchMedia("(pointer: coarse)
 // Left thumb: ◀ left edge, ▶ beside it, ▼ duck tucked between them
 // Right thumb: JUMP large bottom-right, E and F stacked above it
 // All buttons sit in the bottom ~80px so they never cover the play field
-const _BH = 110;      // primary button height — 20% larger than before (was 92)
-const _BY = H - _BH - 8;   // primary button row Y  (bottom-aligned)
-// Directional buttons: wider, taller, with explicit padding so the invisible
-// hit zone extends well beyond the visible shape. 16px visual gaps between
-// visible buttons but generous overlap in hit-zone is intentional (thumb
-// can't distinguish pixel-perfect zones at speed).
-const _DW = 110; // directional button visible width — 20% larger (was 92)
-const _DG = 10;  // gap between visible directional buttons
-const _DW2 = 86; // center/up/down button width (was 72, +20%)
-// UP button sits above DOWN in a D-pad column so ladder climbing is accessible on mobile
-const _UY = _BY - _DW2 - 6;  // UP button Y: stacked above DOWN with 6px gap
+// All directional + action buttons share the same size for visual consistency
+const _BS = 80;   // button size (square) — uniform for all buttons
+const _BG = 8;    // gap between buttons
+const _BY = H - _BS - 14;          // bottom row Y
+const _UY = _BY - _BS - _BG;       // UP button Y (above bottom row)
 const TOUCH_BTNS = [
-  { key: "arrowleft",  label: "◀",    x: 10,                              y: _BY,  w: _DW,  h: _BH,  pad: { l: 10, r: 6, t: 14, b: 8 } },
-  { key: "arrowup",   label: "▲",    x: 10 + _DW + _DG,                  y: _UY,  w: _DW2, h: _DW2, pad: { l: 6,  r: 6, t: 10, b: 4 } },
-  { key: "arrowdown",  label: "▼",    x: 10 + _DW + _DG,                  y: _BY,  w: _DW2, h: _BH,  pad: { l: 6,  r: 6, t: 14, b: 8 } },
-  { key: "arrowright", label: "▶",    x: 10 + _DW + _DG + _DW2 + _DG,    y: _BY,  w: _DW,  h: _BH,  pad: { l: 6, r: 10, t: 14, b: 8 } },
-  // JUMP is the primary action — biggest button, isolated far right (115px, 20% larger)
-  // E/F sit to its left with a clear gap so thumbs never misfire
-  { key: " ",          label: "JUMP", x: W - 123,     y: H - 123,  w: 115, h: 115, pad: { l: 10, r: 6,  t: 12, b: 6 } },
-  { key: "f",          label: "F",    x: W - 254,     y: _BY,      w: _DW, h: _BH, pad: { l: 4,  r: 8,  t: 14, b: 8 } },
-  { key: "e",          label: "E",    x: W - 254 - _DW - _DG, y: _BY, w: _DW, h: _BH, pad: { l: 8, r: 4, t: 14, b: 8 } },
+  // Left cluster: ◀ ▼ ▶ on bottom row, ▲ above ▼
+  { key: "arrowleft",  label: "◀", x: 10,                        y: _BY,  w: _BS, h: _BS, pad: { l: 10, r: 5, t: 12, b: 8 } },
+  { key: "arrowup",    label: "▲", x: 10 + _BS + _BG,            y: _UY,  w: _BS, h: _BS, pad: { l: 5,  r: 5, t: 12, b: 4 } },
+  { key: "arrowdown",  label: "▼", x: 10 + _BS + _BG,            y: _BY,  w: _BS, h: _BS, pad: { l: 5,  r: 5, t: 12, b: 8 } },
+  { key: "arrowright", label: "▶", x: 10 + (_BS + _BG) * 2,      y: _BY,  w: _BS, h: _BS, pad: { l: 5, r: 10, t: 12, b: 8 } },
+  // Right cluster: JUMP large bottom-right, E and F to its left
+  { key: " ",  label: "JUMP", x: W - _BS - 10,            y: _BY - 10, w: _BS + 10, h: _BS + 10, pad: { l: 8, r: 8, t: 10, b: 8 } },
+  { key: "f",  label: "F",    x: W - (_BS + 10) - _BS - _BG - 10, y: _BY, w: _BS, h: _BS, pad: { l: 5, r: 5, t: 12, b: 8 } },
+  { key: "e",  label: "E",    x: W - (_BS + 10) - (_BS + _BG) * 2 - 10, y: _BY, w: _BS, h: _BS, pad: { l: 5, r: 5, t: 12, b: 8 } },
 ];
 const ZERO_PAD = { l: 0, r: 0, t: 0, b: 0 };
 function hitTouchBtn(b, p) {
@@ -1487,6 +1378,10 @@ canvas.addEventListener("pointerdown", (ev) => {
     const b = caughtBtns.find(b => hit(b, p));
     if (b) { tapHaptic(); if (b.id === "continue") resumeAfterCaught(); else startGame(); return; }
   }
+  if (touchUI && game.mode === "PLAY") {
+    const b = TOUCH_BTNS.find(b => hitTouchBtn(b, p));
+    if (b) { touchKeys.set(ev.pointerId, b.key); pressKey(b.key); tapHaptic(); try { canvas.setPointerCapture(ev.pointerId); } catch(e){} return; }
+  }
   if (game.mode === "EXIT") { game.skipRide = true; return; }
   if (game.mode === "PLAY" && hit(MENU_CHIP, p)) { tapHaptic(); openMenu(); return; }
   if (game.mode === "TITLE" && hit(TITLE_SETTINGS, p)) { tapHaptic(); openMenu(); return; }
@@ -1499,7 +1394,14 @@ canvas.addEventListener("pointerdown", (ev) => {
     return;   // clicks elsewhere on the results screen do nothing (no accidental restarts)
   }
 });
-canvas.addEventListener("pointermove", (_ev) => { /* no-op: touch buttons are now HTML elements */ });
+canvas.addEventListener("pointermove", (ev) => {
+  if (!touchKeys.has(ev.pointerId)) return;
+  const b = TOUCH_BTNS.find(b => hitTouchBtn(b, canvasPoint(ev)));
+  if (b && b.key !== touchKeys.get(ev.pointerId)) {
+    releaseTouch(ev.pointerId); touchKeys.set(ev.pointerId, b.key); pressKey(b.key);
+    if (touchUI) Haptics.buzz(HAPTIC.light);
+  }
+});
 ["pointerup", "pointercancel", "pointerleave"].forEach(t => canvas.addEventListener(t, (ev) => releaseTouch(ev.pointerId)));
 
 /* ---- settings / pause menu ---- */
@@ -3569,7 +3471,6 @@ function lose() {
 
 /* --------------------------- RENDER --------------------------- */
 function render() {
-  updateCtrlVisibility();
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, W, H);
   if (game.mode === "TITLE") { renderTitle(); if (menu.open) renderMenu(); else if (howtoOpen) renderHowToPlay(); return; }
@@ -3590,6 +3491,7 @@ function render() {
   if (game.mode === "WIN") renderWin();
   if (game.mode === "LOSE") renderLose();
   if (menu.open) renderMenu();
+  if (touchUI && game.mode === "PLAY") drawTouchControls();
 
   /* Update blur background: copy the current game frame to the blur canvas,
      scale it to cover the entire viewport (maintaining aspect ratio), and apply
@@ -7252,7 +7154,38 @@ function drawPrompt(x, bottomY, p) {
   ctx.fillText(p.t, cx, by + 14.5);
 }
 
-/* drawTouchControls() removed — buttons are now HTML elements in #ctrlLeft / #ctrlRight */
+function drawTouchControls() {
+  // Dark gradient strip behind buttons so glass effect reads over any background
+  const barGrad = ctx.createLinearGradient(0, H - (_BS * 2 + _BG + 30), 0, H);
+  barGrad.addColorStop(0, "rgba(10,18,28,0)");
+  barGrad.addColorStop(1, "rgba(10,18,28,0.45)");
+  ctx.fillStyle = barGrad;
+  ctx.fillRect(0, H - (_BS * 2 + _BG + 30), W, _BS * 2 + _BG + 30);
+
+  for (const b of TOUCH_BTNS) {
+    const held = keys.has(b.key);
+    const isJump = b.key === " ";
+    const r = isJump ? 24 : 16;
+    // Glass fill
+    ctx.globalAlpha = held ? 0.92 : 0.28;
+    roundRect(b.x, b.y, b.w, b.h, r,
+      held ? C.teal : "rgba(255,255,255,0.15)",
+      null);
+    // White outline — always visible, stronger when held
+    ctx.globalAlpha = held ? 1 : 0.65;
+    roundRect(b.x, b.y, b.w, b.h, r,
+      null,
+      held ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.75)");
+    ctx.globalAlpha = 1;
+    // Label
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = `900 ${isJump ? 13 : 22}px ${F_UI}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2 + 1);
+    ctx.textBaseline = "alphabetic";
+  }
+}
 
 /* --------------------------- MAIN LOOP --------------------------- */
 const portraitLock = (typeof matchMedia === "function") ? matchMedia("(pointer: coarse) and (orientation: portrait)") : null;
