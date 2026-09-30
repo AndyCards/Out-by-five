@@ -6907,7 +6907,7 @@ function renderMenu() {
   const title = menu.from === "TITLE" ? "SETTINGS" : "PAUSED";
   ctx.save(); ctx.textAlign = "center"; ctx.fillStyle = C.navyDark; ctx.font = `800 38px ${F_FUN}`;
   {  // manual tracking (canvas letterSpacing isn't reliable on every browser)
-    const track = 6, chars = [...title], ws = chars.map(c => ctx.measureText(c).width);
+    const track = 3, chars = [...title], ws = chars.map(c => ctx.measureText(c).width);
     const tot = ws.reduce((a, b) => a + b, 0) + track * (chars.length - 1);
     ctx.textAlign = "left";
     let x = W / 2 - tot / 2;
