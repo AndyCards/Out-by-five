@@ -45,6 +45,7 @@
   }
   .wrap {
     position: fixed; inset: 0;
+    overflow: hidden;
     display: flex; align-items: center; justify-content: center;
     background:
       radial-gradient(1000px 400px at 50% 0%, rgba(20,184,176,0.15), transparent 60%),
@@ -67,6 +68,7 @@
     image-rendering: pixelated;
     image-rendering: crisp-edges;
     display: block;
+    overflow: hidden;
     /* Width/height are set in JS (fitCanvasResolution) to the logical
        1104x621 design resolution scaled by a SINGLE uniform factor, so the
        game is letterboxed/pillarboxed on off-ratio screens instead of being
@@ -781,7 +783,9 @@ function fitCanvasResolution() {
   if (availW < 1 || availH < 1) return;   // not laid out yet
 
   // ONE scale factor for both axes — this is what keeps proportions intact.
-  const scale = Math.min(availW / W, availH / H);
+  const scale = touchUI
+    ? Math.max(availW / W, availH / H)   // cover on mobile: fills screen, clips overflow
+    : Math.min(availW / W, availH / H);  // contain on desktop: letterbox keeps all visible
   const cssW = Math.round(W * scale), cssH = Math.round(H * scale);
   canvas.style.width = cssW + "px";
   canvas.style.height = cssH + "px";
@@ -1298,25 +1302,23 @@ let touchUI = (typeof matchMedia === "function" && matchMedia("(pointer: coarse)
 // Left thumb: ◀ left edge, ▶ beside it, ▼ duck tucked between them
 // Right thumb: JUMP large bottom-right, E and F stacked above it
 // All buttons sit in the bottom ~80px so they never cover the play field
-const _BY = H - 82;   // primary button row Y  (bottom-aligned)
-const _BH = 76;       // primary button height — larger for thumb accuracy
-const _SY = H - 80;   // secondary row
-const _SH = 58;
+const _BH = 92;       // primary button height — all buttons now tall for thumb accuracy
+const _BY = H - _BH - 8;   // primary button row Y  (bottom-aligned)
 // Directional buttons: wider, taller, with explicit padding so the invisible
 // hit zone extends well beyond the visible shape. 16px visual gaps between
 // visible buttons but generous overlap in hit-zone is intentional (thumb
 // can't distinguish pixel-perfect zones at speed).
-const _DW = 80;  // directional button visible width
-const _DG = 14;  // gap between visible directional buttons
+const _DW = 92;  // directional button visible width — as wide as JUMP
+const _DG = 10;  // gap between visible directional buttons
 const TOUCH_BTNS = [
   { key: "arrowleft",  label: "◀",    x: 10,               y: _BY,      w: _DW, h: _BH, pad: { l: 10, r: 6, t: 14, b: 8 } },
-  { key: "arrowdown",  label: "▼",    x: 10 + _DW + _DG,   y: _BY,      w: 64,  h: _BH, pad: { l: 6,  r: 6, t: 14, b: 8 } },
-  { key: "arrowright", label: "▶",    x: 10 + _DW + _DG + 64 + _DG, y: _BY, w: _DW, h: _BH, pad: { l: 6, r: 10, t: 14, b: 8 } },
+  { key: "arrowdown",  label: "▼",    x: 10 + _DW + _DG,   y: _BY,      w: 72,  h: _BH, pad: { l: 6,  r: 6, t: 14, b: 8 } },
+  { key: "arrowright", label: "▶",    x: 10 + _DW + _DG + 72 + _DG, y: _BY, w: _DW, h: _BH, pad: { l: 6, r: 10, t: 14, b: 8 } },
   // JUMP is the primary action — biggest button, isolated far right
   // E/F sit to its left with a clear 20px+ visual gap so thumbs never misfire
-  { key: " ",          label: "JUMP", x: W - 96,      y: H - 104,  w: 92, h: 98,  pad: { l: 10, r: 6,  t: 12, b: 6 } },
-  { key: "f",          label: "F",    x: W - 210,     y: _SY,      w: 56, h: _SH, pad: { l: 4,  r: 8,  t: 22, b: 6 } },
-  { key: "e",          label: "E",    x: W - 274,     y: _SY,      w: 56, h: _SH, pad: { l: 8,  r: 4,  t: 22, b: 6 } },
+  { key: " ",          label: "JUMP", x: W - 104,     y: H - 104,  w: 96, h: 96,  pad: { l: 10, r: 6,  t: 12, b: 6 } },
+  { key: "f",          label: "F",    x: W - 228,     y: _BY,      w: _DW, h: _BH, pad: { l: 4,  r: 8,  t: 14, b: 8 } },
+  { key: "e",          label: "E",    x: W - 228 - _DW - _DG, y: _BY, w: _DW, h: _BH, pad: { l: 8,  r: 4,  t: 14, b: 8 } },
 ];
 const ZERO_PAD = { l: 0, r: 0, t: 0, b: 0 };
 function hitTouchBtn(b, p) {
@@ -1461,14 +1463,7 @@ function menuSelect(i) {
   Sound.play("menu");
 }
 function menuScaledPoint(p) {
-  // renderMenu applies a ctx.scale on mobile — transform the raw canvas point
-  // into that scaled coordinate space so hit-testing against menu.rects works
-  if (!touchUI) return p;
-  const mScale = Math.min(W / 420, H / 420) * 1.22;
-  return {
-    x: (p.x - W / 2) / mScale + W / 2,
-    y: (p.y - H / 2) / mScale + H / 2,
-  };
+  return p;   // no ctx.scale in renderMenu any more; raw canvas coords are correct
 }
 function menuClick(p) {
   const sp = menuScaledPoint(p);
@@ -6535,70 +6530,63 @@ function drawIconChip(x, y, kind, text) {
 }
 function renderHowToPlay() {
   ctx.save();
-  // On mobile, scale the entire panel up so it's readable on a small phone screen
-  if (touchUI) {
-    const mScale = Math.min(W / 700, H / 480) * 1.18;
-    ctx.translate(W / 2, H / 2);
-    ctx.scale(mScale, mScale);
-    ctx.translate(-W / 2, -H / 2);
-  }
   ctx.fillStyle = "rgba(27,38,52,0.62)"; ctx.fillRect(0, 0, W, H);
 
-  const cw = 700, ch = 476;
+  const cw = Math.min(700, W - 24), ch = Math.min(476, H - 16);
+  const sc = Math.min(cw / 700, ch / 476);   // uniform scale for fonts & spacing
   const cx = Math.round((W - cw) / 2), cy = Math.round((H - ch) / 2);
   roundRect(cx, cy, cw, ch, 10, "#FBF8F1", null, true);
-  const padX = 26;
+  const padX = Math.round(26 * sc);
   const fullX = cx + padX, fullW = cw - padX * 2;
 
-  ctx.textAlign = "center"; ctx.fillStyle = C.navyDark; ctx.font = `800 26px ${F_FUN}`;
-  ctx.fillText("HOW TO PLAY", W / 2, cy + 34);
-  ctx.fillStyle = "#6C7A8A"; ctx.font = `500 12px ${F_TEXT}`;
-  ctx.fillText("Get to the elevator by 5:00 PM. How you do it is up to you.", W / 2, cy + 52);
+  ctx.textAlign = "center"; ctx.fillStyle = C.navyDark; ctx.font = `800 ${Math.round(26 * sc)}px ${F_FUN}`;
+  ctx.fillText("HOW TO PLAY", W / 2, cy + Math.round(34 * sc));
+  ctx.fillStyle = "#6C7A8A"; ctx.font = `500 ${Math.round(12 * sc)}px ${F_TEXT}`;
+  ctx.fillText("Get to the elevator by 5:00 PM. How you do it is up to you.", W / 2, cy + Math.round(52 * sc));
 
-  const colGap = 22, lw = 250, rw = fullW - colGap - lw;
+  const colGap = Math.round(22 * sc), lw = Math.round(250 * sc), rw = fullW - colGap - lw;
   const lx = fullX, rx = lx + lw + colGap;
-  const bodyTop = cy + 100;
+  const bodyTop = cy + Math.round(100 * sc);
 
-  // ---- left column: "YOUR MOVES" (tinted panel) + "RESOURCES" (tinted panel)
-  ctx.textAlign = "left"; ctx.fillStyle = "#6C7A8A"; ctx.font = `700 12px ${F_UI}`;
+  ctx.textAlign = "left"; ctx.fillStyle = "#6C7A8A"; ctx.font = `700 ${Math.round(12 * sc)}px ${F_UI}`;
   ctx.fillText("YOUR MOVES", lx, bodyTop);
 
-  const panelAY = bodyTop + 14, rowH = 32, panelAH = 12 + HOWTO_CONTROLS.length * rowH + 6;
+  const panelAY = bodyTop + Math.round(14 * sc), rowH = Math.round(32 * sc), panelAH = Math.round(12 * sc) + HOWTO_CONTROLS.length * rowH + Math.round(6 * sc);
   roundRect(lx, panelAY, lw, panelAH, 12, "#E7F1FA", null, false);
-  let ty = panelAY + 12 + 18;
+  let ty = panelAY + Math.round(12 * sc) + Math.round(18 * sc);
   for (const [label, keys, alt] of HOWTO_CONTROLS) {
-    let kx = lx + 14;
-    for (const k of keys) { drawKeycap(kx, ty - 18, 22, k); kx += 26; }
-    ctx.fillStyle = C.navyDark; ctx.font = `700 12px ${F_TEXT}`;
+    let kx = lx + Math.round(14 * sc);
+    for (const k of keys) { drawKeycap(kx, ty - Math.round(18 * sc), Math.round(22 * sc), k); kx += Math.round(26 * sc); }
+    ctx.fillStyle = C.navyDark; ctx.font = `700 ${Math.round(12 * sc)}px ${F_TEXT}`;
     ctx.fillText(label, kx + 4, ty - 4);
-    ctx.textAlign = "right"; ctx.fillStyle = "#5B6674"; ctx.font = `700 10px ${F_UI}`;
-    ctx.fillText(alt, lx + lw - 14, ty - 4);
+    ctx.textAlign = "right"; ctx.fillStyle = "#5B6674"; ctx.font = `700 ${Math.round(10 * sc)}px ${F_UI}`;
+    ctx.fillText(alt, lx + lw - Math.round(14 * sc), ty - 4);
     ctx.textAlign = "left";
     ty += rowH;
   }
 
-  const panelBY = panelAY + panelAH + 14;
-  ctx.fillStyle = "#6C7A8A"; ctx.font = `700 12px ${F_UI}`;
+  const panelBY = panelAY + panelAH + Math.round(14 * sc);
+  ctx.fillStyle = "#6C7A8A"; ctx.font = `700 ${Math.round(12 * sc)}px ${F_UI}`;
   ctx.fillText("YOUR TOOLS", lx, panelBY + 4);
-  const panelB2Y = panelBY + 18, panelBH = 96;
+  const panelB2Y = panelBY + Math.round(18 * sc), panelBH = Math.round(96 * sc);
   roundRect(lx, panelB2Y, lw, panelBH, 12, "#E7F5EC", null, false);
-  const tileW = (lw - 16) / 3;
+  const tileW = (lw - Math.round(16 * sc)) / 3;
   HOWTO_RESOURCES.forEach((res, i) => {
-    const tcx = lx + 8 + i * tileW + tileW / 2;
-    drawHudPickupIcon(res.kind, tcx, panelB2Y + 30, 0.85, false);
-    ctx.textAlign = "center"; ctx.fillStyle = C.navyDark; ctx.font = `800 9px ${F_UI}`;
-    ctx.fillText(res.label, tcx, panelB2Y + 54);
-    ctx.fillStyle = "#6C7A8A"; ctx.font = `500 9px ${F_TEXT}`;
-    wrapText(res.desc, tileW - 4).slice(0, 3).forEach((line, i2) => ctx.fillText(line, tcx, panelB2Y + 66 + i2 * 10));
+    const tcx = lx + Math.round(8 * sc) + i * tileW + tileW / 2;
+    drawHudPickupIcon(res.kind, tcx, panelB2Y + Math.round(30 * sc), 0.85 * sc, false);
+    ctx.textAlign = "center"; ctx.fillStyle = C.navyDark; ctx.font = `800 ${Math.round(9 * sc)}px ${F_UI}`;
+    ctx.fillText(res.label, tcx, panelB2Y + Math.round(54 * sc));
+    ctx.fillStyle = "#6C7A8A"; ctx.font = `500 ${Math.round(9 * sc)}px ${F_TEXT}`;
+    wrapText(res.desc, tileW - 4).slice(0, 3).forEach((line, i2) => ctx.fillText(line, tcx, panelB2Y + Math.round(66 * sc) + i2 * Math.round(10 * sc)));
   });
   ctx.textAlign = "left";
 
   // ---- right column: "KNOW YOUR OFFICE" — one pastel-tinted card per enemy
-  ctx.fillStyle = "#6C7A8A"; ctx.font = `700 12px ${F_UI}`;
+  ctx.fillStyle = "#6C7A8A"; ctx.font = `700 ${Math.round(12 * sc)}px ${F_UI}`;
   ctx.fillText("KNOW YOUR OFFICE", rx, bodyTop);
-  ty = bodyTop + 14;
+  ty = bodyTop + Math.round(14 * sc);
 
-  const cardH = 96, cardGap = 10, iconCx = rx + 34;
+  const cardH = Math.round(96 * sc), cardGap = Math.round(10 * sc), iconCx = rx + Math.round(34 * sc);
   for (const crew of HOWTO_CREW) {
     const cardY = ty;
     ctx.save();
@@ -6610,21 +6598,21 @@ function renderHowToPlay() {
     // the player will see coming down the hall
     ctx.save();
     ctx.globalAlpha = 0.2; ctx.fillStyle = C.navyDark;
-    ctx.beginPath(); ctx.ellipse(iconCx, cardY + 62, 15, 3.2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(iconCx, cardY + Math.round(62 * sc), Math.round(15 * sc), Math.round(3.2 * sc), 0, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
-    Sprites.draw(ctx, crew.sprite, "idle", 0, 1, iconCx, cardY + 62, { sx: 0.82, sy: 0.82 });
+    Sprites.draw(ctx, crew.sprite, "idle", 0, 1, iconCx, cardY + Math.round(62 * sc), { sx: 0.82 * sc, sy: 0.82 * sc });
 
-    const tx = rx + 64, tw = rw - 64 - 10;
-    ctx.textAlign = "left"; ctx.fillStyle = crew.textColor || crew.color; ctx.font = `800 15px ${F_UI}`;
-    ctx.fillText(crew.name, tx, cardY + 22);
+    const tx = rx + Math.round(64 * sc), tw = rw - Math.round(64 * sc) - 10;
+    ctx.textAlign = "left"; ctx.fillStyle = crew.textColor || crew.color; ctx.font = `800 ${Math.round(15 * sc)}px ${F_UI}`;
+    ctx.fillText(crew.name, tx, cardY + Math.round(22 * sc));
     const nameW = ctx.measureText(crew.name).width;
-    drawHowtoChip(tx + nameW + 10, cardY + 8, crew.danger, crew.color);
+    drawHowtoChip(tx + nameW + 10, cardY + Math.round(8 * sc), crew.danger, crew.color);
 
-    ctx.fillStyle = "#3A4658"; ctx.font = `500 11px ${F_TEXT}`;
+    ctx.fillStyle = "#3A4658"; ctx.font = `500 ${Math.round(11 * sc)}px ${F_TEXT}`;
     const lines = wrapText(crew.watch, tw).slice(0, 2);
-    lines.forEach((line, i) => ctx.fillText(line, tx, cardY + 39 + i * 13));
+    lines.forEach((line, i) => ctx.fillText(line, tx, cardY + Math.round(39 * sc) + i * Math.round(13 * sc)));
 
-    let chx = tx, chy = cardY + (lines.length > 1 ? 65 : 58);
+    let chx = tx, chy = cardY + (lines.length > 1 ? Math.round(65 * sc) : Math.round(58 * sc));
     for (const [kind, label] of crew.counters) chx += drawIconChip(chx, chy, kind, label) + 6;
 
     ty += cardH + cardGap;
@@ -6632,8 +6620,8 @@ function renderHowToPlay() {
 
   ctx.textAlign = "center";
   ctx.globalAlpha = 0.65 + 0.35 * Math.sin(performance.now() / 300);
-  ctx.fillStyle = C.teal; ctx.font = `800 12px ${F_UI}`;
-  ctx.fillText(touchUI ? "TAP TO CLOSE" : "SPACE / ENTER / ESC TO CLOSE", W / 2, cy + ch - 16);
+  ctx.fillStyle = C.teal; ctx.font = `800 ${Math.round(12 * sc)}px ${F_UI}`;
+  ctx.fillText(touchUI ? "TAP TO CLOSE" : "SPACE / ENTER / ESC TO CLOSE", W / 2, cy + ch - Math.round(16 * sc));
   ctx.globalAlpha = 1;
   ctx.restore();
 }
@@ -6672,17 +6660,10 @@ function pixelToggle(x, y, on) {
 
 function renderMenu() {
   ctx.save();
-  // Scale up on mobile so the menu text is comfortably readable
-  if (touchUI) {
-    const mScale = Math.min(W / 420, H / 420) * 1.22;
-    ctx.translate(W / 2, H / 2);
-    ctx.scale(mScale, mScale);
-    ctx.translate(-W / 2, -H / 2);
-  }
   ctx.fillStyle = "rgba(15,26,38,0.72)"; ctx.fillRect(0, 0, W, H);
   const items = menuItems();
   const hasBottom = items.some(it => it.id === "restart");
-  const pw = 400, ph = hasBottom ? 392 : 340;
+  const pw = Math.min(400, W - 32), ph = Math.min(hasBottom ? 392 : 340, H - 20);
   const px = Math.round((W - pw) / 2), py = Math.round((H - ph) / 2);
   roundRect(px, py, pw, ph, 8, "#FBF8F1", null, true);
 
@@ -6800,13 +6781,9 @@ function renderCaught() {
   const inv = game.invite;
   if (!inv) return;
   ctx.save();
-  if (touchUI) {
-    const mScale = Math.min(W / 450, H / 420) * 1.18;
-    ctx.translate(W / 2, H / 2); ctx.scale(mScale, mScale); ctx.translate(-W / 2, -H / 2);
-  }
   ctx.fillStyle = `rgba(70,63,150,${Math.min(0.45, t / 600)})`;
   ctx.fillRect(0, 0, W, H);
-  const cw = 430;
+  const cw = Math.min(430, W - 24);
   const cx = Math.round((W - cw) / 2);
   const agendaX = cx + 100, agendaW = cw - agendaX + cx - 20;   // right padding to card edge
 
@@ -6899,14 +6876,10 @@ function renderCaught() {
 function renderResultCard(win) {
   const r = game.result || { titles: [] };
   ctx.save();
-  if (touchUI) {
-    const mScale = Math.min(W / 500, H / 460) * 1.18;
-    ctx.translate(W / 2, H / 2); ctx.scale(mScale, mScale); ctx.translate(-W / 2, -H / 2);
-  }
   ctx.fillStyle = win ? "rgba(20,184,176,0.28)" : "rgba(27,38,52,0.6)";
   ctx.fillRect(0, 0, W, H);
 
-  const cw = 480;
+  const cw = Math.min(480, W - 24);
   const cx = Math.round((W - cw) / 2);
   const rows = win ? [
     ["Time out", `${r.clock} PM`],
