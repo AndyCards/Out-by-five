@@ -7016,7 +7016,7 @@ function renderCaught() {
 
   // wrap the agenda line first so the card can grow to fit it — long
   // office-sarcasm lines never spill past the card edge
-  ctx.font = `500 13px ${F_TEXT}`;
+  ctx.font = `500 15px ${F_TEXT}`;
   const rowDefs = [
     ["WHEN", `${inv.at} PM`],
     ["LENGTH", inv.length],
@@ -7054,7 +7054,7 @@ function renderCaught() {
   let ry = cy + rowsTop;
   for (const [k, ls] of rowDefs) {
     ctx.font = `800 9px ${F_UI}`; ctx.fillStyle = purple; ctx.fillText(k, cx + 20, ry);
-    ctx.font = `500 13px ${F_TEXT}`; ctx.fillStyle = "#1B2634";
+    ctx.font = `500 15px ${F_TEXT}`; ctx.fillStyle = "#1B2634";
     ls.forEach((l, i) => ctx.fillText(l, agendaX, ry + i * lineH));
     ry += ls.length * lineH + rowPad;
   }
