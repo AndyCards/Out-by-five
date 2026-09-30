@@ -7266,7 +7266,6 @@ function renderResultCard(win) {
   const scoreY = win ? 150 : 124 * 1.2;               // win subtitle runs two lines, so score sits a little lower
   const rowsTop = win ? 205 : 172 * 1.2, rowGap = win ? 34 : 45;
   const badge = (r.titles && r.titles[0]) || null;
-  if (touchUI) { drawResultWide(win, r, rows, title, badge); ctx.restore(); return; }
   const footer = 92 * 1.2;
   const chh = rowsTop + rows.length * rowGap + (badge ? 50 : 16) + footer - 36;
   const cy = Math.round((H - chh) / 2) - 8;
