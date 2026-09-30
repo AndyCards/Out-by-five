@@ -20,7 +20,7 @@
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0; height: 100%;
-    background: #0F1A26;
+    background: #EAF3F6;
     color: #F5EFE3;
     font-family: "Fredoka", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     overflow: hidden;
@@ -47,9 +47,7 @@
     position: fixed; inset: 0;
     overflow: hidden;
     display: flex; align-items: center; justify-content: center;
-    background:
-      radial-gradient(1000px 400px at 50% 0%, rgba(20,184,176,0.15), transparent 60%),
-      linear-gradient(180deg, #0F1A26 0%, #1B2634 100%);
+    background: transparent;
   }
   #gameBlur {
     position: fixed; inset: 0; z-index: -1;
@@ -57,11 +55,9 @@
     display: block; pointer-events: none;
     filter: blur(28px);
     object-fit: cover;
-    background: #FFFFFF;
+    background: #EAF3F6;
     /* Full-screen layer behind .wrap showing a blurred, scaled copy of the
-       current game frame. White background fills any letterbox/pillarbox gaps
-       with a clean, neutral space. Provides visual continuity and environmental
-       context without affecting the sharp, centered game. */
+       current game frame. Matches the game sky colour for seamless side bars. */
   }
   #game {
     background: #EAF3F6;
@@ -783,9 +779,7 @@ function fitCanvasResolution() {
   if (availW < 1 || availH < 1) return;   // not laid out yet
 
   // ONE scale factor for both axes — this is what keeps proportions intact.
-  const scale = touchUI
-    ? Math.max(availW / W, availH / H)   // cover on mobile: fills screen, clips overflow
-    : Math.min(availW / W, availH / H);  // contain on desktop: letterbox keeps all visible
+  const scale = Math.min(availW / W, availH / H);
   const cssW = Math.round(W * scale), cssH = Math.round(H * scale);
   canvas.style.width = cssW + "px";
   canvas.style.height = cssH + "px";
