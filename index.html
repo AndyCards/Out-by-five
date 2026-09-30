@@ -6905,7 +6905,15 @@ function renderMenu() {
 
   // title in the same pixel lettering as CLOCKED OUT / SHIFT OVER
   const title = menu.from === "TITLE" ? "SETTINGS" : "PAUSED";
-  ctx.save(); ctx.textAlign = "center"; ctx.fillStyle = C.navyDark; ctx.font = `800 38px ${F_FUN}`; ctx.fillText(title, W / 2, py + 58); ctx.restore();
+  ctx.save(); ctx.textAlign = "center"; ctx.fillStyle = C.navyDark; ctx.font = `800 38px ${F_FUN}`;
+  {  // manual tracking (canvas letterSpacing isn't reliable on every browser)
+    const track = 6, chars = [...title], ws = chars.map(c => ctx.measureText(c).width);
+    const tot = ws.reduce((a, b) => a + b, 0) + track * (chars.length - 1);
+    ctx.textAlign = "left";
+    let x = W / 2 - tot / 2;
+    chars.forEach((c, i) => { ctx.fillText(c, x, py + 58); x += ws[i] + track; });
+  }
+  ctx.restore();
   ctx.textAlign = "center"; ctx.fillStyle = "#6C7A8A"; ctx.font = `500 13px ${F_TEXT}`;
   ctx.fillText(menu.from === "TITLE" ? "Tune the office to your liking." : "The clock is stopped. Nobody saw anything.", W / 2, py + 76);
 
