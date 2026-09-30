@@ -7263,11 +7263,18 @@ function renderResultCard(win) {
     ["Office loot", `${stats.loot || 0} / ${LOOT_TOTAL}`],
   ];
   const title = win ? "YOU'VE MADE IT!" : (r.loseMsg || LOSE_MESSAGES[0]);
-  const scoreY = win ? 150 : 124 * 1.2;               // win subtitle runs two lines, so score sits a little lower
-  const rowsTop = win ? 205 : 172 * 1.2, rowGap = win ? 34 : 45;
+  // compact vertical rhythm: header, score, stats, badge, best line, CTAs — no dead bands between them
+  const scoreY = 128;
+  const rowGap = win ? 32 : 36;
+  const rowsTop = scoreY + (win && r.noMeetings ? 58 : 44);
+  const lastRowY = rowsTop + (rows.length - 1) * rowGap;
   const badge = (r.titles && r.titles[0]) || null;
-  const footer = 92 * 1.2;
-  const chh = rowsTop + rows.length * rowGap + (badge ? 50 : 16) + footer - 36;
+  const bw = 202 * 1.2, bh = 46, gap = 9 * 1.2;
+  let cur = lastRowY + 20;                       // just under the last divider
+  const badgeY = cur; if (badge) cur += 36 + 10;
+  const bestY = cur + 10; if (win && r.best) cur += 26;
+  const btnY = cur + 12;
+  const chh = btnY + bh + 20;
   const cy = Math.round((H - chh) / 2) - 8;
   drawConfetti();
   roundRect(cx, cy, cw, chh, 8, "#FBF8F1", null, true);
@@ -7278,10 +7285,10 @@ function renderResultCard(win) {
   ctx.save(); ctx.textAlign = "center"; ctx.fillStyle = C.navyDark; ctx.font = `800 ${titleSize}px ${F_FUN}`; ctx.fillText(title, W / 2, cy + 58); ctx.restore();
   if (win) {
     ctx.fillStyle = "#8B96A3"; ctx.font = `500 13px ${F_TEXT}`;
-    ctx.fillText(r.winSubtitle || "Freedom tastes sweet.", W / 2, cy + 78);
+    ctx.fillText(r.winSubtitle || "Freedom tastes sweet.", W / 2, cy + 80);
   } else {
     ctx.fillStyle = "#8B96A3"; ctx.font = `500 13px ${F_TEXT}`;
-    ctx.fillText(r.loseSubtitle || "Better luck next time.", W / 2, cy + 78);
+    ctx.fillText(r.loseSubtitle || "Better luck next time.", W / 2, cy + 80);
   }
 
   // ESCAPE SCORE — the headline number of the results card
@@ -7311,22 +7318,21 @@ function renderResultCard(win) {
   if (badge) {
     const [name] = badge;
     ctx.font = `800 ${Math.round(12 * 1.2)}px ${F_UI}`;
-    const pillW = ctx.measureText(name).width + 36 * 1.2, pillH = 30 * 1.2;
-    const py = cy + rowsTop + (rows.length - 1) * rowGap + 8 * 1.2;
+    const pillW = ctx.measureText(name).width + 36 * 1.2, pillH = 34;
+    const py = cy + badgeY;
     roundRect(W / 2 - pillW / 2, py, pillW, pillH, pillH / 2, win ? C.teal : "#8B96A3", null, true);
     ctx.textAlign = "center"; ctx.fillStyle = "#FFFFFF";
-    ctx.fillText(name, W / 2, py + 20 * 1.2);
+    ctx.fillText(name, W / 2, py + 22);
   }
 
   if (win && r.best) {
     const b = r.best;
     ctx.textAlign = "center"; ctx.fillStyle = b.newDaily ? "#D96A5A" : "#6C7A8A"; ctx.font = `800 ${Math.round(9 * 1.2)}px ${F_UI}`;
-    ctx.fillText(b.newAll ? "NEW ALL-TIME BEST!" : b.newDaily ? "NEW BEST TODAY!" : `TODAY'S BEST ${clockString(b.daily)}  ·  ALL-TIME ${clockString(b.all)}`, W / 2, cy + chh - 66 * 1.2);
+    ctx.fillText(b.newAll ? "NEW ALL-TIME BEST!" : b.newDaily ? "NEW BEST TODAY!" : `TODAY'S BEST ${clockString(b.daily)}  ·  ALL-TIME ${clockString(b.all)}`, W / 2, cy + bestY + 6);
   }
 
   // buttons: secondary (share) left, primary (play again) right — same order as the caught card
-  const bw = 202 * 1.2, bh = 40 * 1.2, gap = 9 * 1.2;
-  const bx0 = Math.round(W / 2 - bw - gap / 2), by = cy + chh - 54 * 1.2;
+  const bx0 = Math.round(W / 2 - bw - gap / 2), by = cy + btnY;
   resultBtns = [
     { id: "share", x: bx0, y: by, w: bw, h: bh },
     { id: "again", x: bx0 + bw + gap, y: by, w: bw, h: bh },
@@ -7335,13 +7341,13 @@ function renderResultCard(win) {
   roundRect(bx0, by, bw, bh, 6 * 1.2, "#FFFFFF", "rgba(38,52,70,0.14)", true);
   ctx.textAlign = "center"; ctx.font = `800 ${Math.round(13 * 1.2)}px ${F_UI}`;
   ctx.fillStyle = copied ? "#1F9D6B" : C.navyDark;
-  ctx.fillText(copied ? "✓ COPIED!" : "SHARE RESULT", bx0 + bw / 2, by + 26 * 1.2);
+  ctx.fillText(copied ? "✓ COPIED!" : "SHARE RESULT", bx0 + bw / 2, by + bh / 2 + 5);
   roundRect(bx0 + bw + gap, by, bw, bh, 6 * 1.2, win ? C.teal : C.navyDark, null, true);
   ctx.fillStyle = "#FFFFFF";
-  ctx.fillText("↻ PLAY AGAIN", bx0 + bw + gap + bw / 2, by + 26 * 1.2);
+  ctx.fillText("↻ PLAY AGAIN", bx0 + bw + gap + bw / 2, by + bh / 2 + 5);
 
   ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.font = `600 ${Math.round(9 * 1.2)}px ${F_UI}`;
-  ctx.fillText(touchUI ? "TAP TO CHOOSE" : "C · COPY RESULT      SPACE · PLAY AGAIN", W / 2, cy + chh + 20 * 1.2);
+  ctx.fillText(touchUI ? "TAP TO CHOOSE" : "C · COPY RESULT      SPACE · PLAY AGAIN", W / 2, cy + chh + 24);
   ctx.restore();
 }
 function renderWin() { renderResultCard(true); }
