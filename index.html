@@ -1308,23 +1308,27 @@ let touchUI = (typeof matchMedia === "function" && matchMedia("(pointer: coarse)
 // Left thumb: ◀ left edge, ▶ beside it, ▼ duck tucked between them
 // Right thumb: JUMP large bottom-right, E and F stacked above it
 // All buttons sit in the bottom ~80px so they never cover the play field
-const _BH = 92;       // primary button height — all buttons now tall for thumb accuracy
+const _BH = 110;      // primary button height — 20% larger than before (was 92)
 const _BY = H - _BH - 8;   // primary button row Y  (bottom-aligned)
 // Directional buttons: wider, taller, with explicit padding so the invisible
 // hit zone extends well beyond the visible shape. 16px visual gaps between
 // visible buttons but generous overlap in hit-zone is intentional (thumb
 // can't distinguish pixel-perfect zones at speed).
-const _DW = 92;  // directional button visible width — as wide as JUMP
+const _DW = 110; // directional button visible width — 20% larger (was 92)
 const _DG = 10;  // gap between visible directional buttons
+const _DW2 = 86; // center/up/down button width (was 72, +20%)
+// UP button sits above DOWN in a D-pad column so ladder climbing is accessible on mobile
+const _UY = _BY - _DW2 - 6;  // UP button Y: stacked above DOWN with 6px gap
 const TOUCH_BTNS = [
-  { key: "arrowleft",  label: "◀",    x: 10,               y: _BY,      w: _DW, h: _BH, pad: { l: 10, r: 6, t: 14, b: 8 } },
-  { key: "arrowdown",  label: "▼",    x: 10 + _DW + _DG,   y: _BY,      w: 72,  h: _BH, pad: { l: 6,  r: 6, t: 14, b: 8 } },
-  { key: "arrowright", label: "▶",    x: 10 + _DW + _DG + 72 + _DG, y: _BY, w: _DW, h: _BH, pad: { l: 6, r: 10, t: 14, b: 8 } },
-  // JUMP is the primary action — biggest button, isolated far right
-  // E/F sit to its left with a clear 20px+ visual gap so thumbs never misfire
-  { key: " ",          label: "JUMP", x: W - 104,     y: H - 104,  w: 96, h: 96,  pad: { l: 10, r: 6,  t: 12, b: 6 } },
-  { key: "f",          label: "F",    x: W - 228,     y: _BY,      w: _DW, h: _BH, pad: { l: 4,  r: 8,  t: 14, b: 8 } },
-  { key: "e",          label: "E",    x: W - 228 - _DW - _DG, y: _BY, w: _DW, h: _BH, pad: { l: 8,  r: 4,  t: 14, b: 8 } },
+  { key: "arrowleft",  label: "◀",    x: 10,                              y: _BY,  w: _DW,  h: _BH,  pad: { l: 10, r: 6, t: 14, b: 8 } },
+  { key: "arrowup",   label: "▲",    x: 10 + _DW + _DG,                  y: _UY,  w: _DW2, h: _DW2, pad: { l: 6,  r: 6, t: 10, b: 4 } },
+  { key: "arrowdown",  label: "▼",    x: 10 + _DW + _DG,                  y: _BY,  w: _DW2, h: _BH,  pad: { l: 6,  r: 6, t: 14, b: 8 } },
+  { key: "arrowright", label: "▶",    x: 10 + _DW + _DG + _DW2 + _DG,    y: _BY,  w: _DW,  h: _BH,  pad: { l: 6, r: 10, t: 14, b: 8 } },
+  // JUMP is the primary action — biggest button, isolated far right (115px, 20% larger)
+  // E/F sit to its left with a clear gap so thumbs never misfire
+  { key: " ",          label: "JUMP", x: W - 123,     y: H - 123,  w: 115, h: 115, pad: { l: 10, r: 6,  t: 12, b: 6 } },
+  { key: "f",          label: "F",    x: W - 254,     y: _BY,      w: _DW, h: _BH, pad: { l: 4,  r: 8,  t: 14, b: 8 } },
+  { key: "e",          label: "E",    x: W - 254 - _DW - _DG, y: _BY, w: _DW, h: _BH, pad: { l: 8, r: 4, t: 14, b: 8 } },
 ];
 const ZERO_PAD = { l: 0, r: 0, t: 0, b: 0 };
 function hitTouchBtn(b, p) {
@@ -7177,7 +7181,7 @@ function drawTouchControls() {
   barGrad.addColorStop(0, "rgba(10,18,28,0)");
   barGrad.addColorStop(1, "rgba(10,18,28,0.55)");
   ctx.fillStyle = barGrad;
-  ctx.fillRect(0, H - 96, W, 96);
+  ctx.fillRect(0, H - 240, W, 240);
 
   for (const b of TOUCH_BTNS) {
     const held = keys.has(b.key);
@@ -7188,7 +7192,7 @@ function drawTouchControls() {
       held ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.45)");
     ctx.globalAlpha = 1;
     ctx.fillStyle = held ? "#FFFFFF" : "rgba(255,255,255,0.70)";
-    ctx.font = `800 ${b.label.length > 1 ? 12 : 22}px ${F_UI}`;
+    ctx.font = `800 ${b.label.length > 1 ? 14 : 26}px ${F_UI}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2 + (isJump ? 1 : 0));
