@@ -3626,12 +3626,35 @@ function lose() {
 }
 
 /* --------------------------- RENDER --------------------------- */
+function drawOverlayPass() {
+  overlayActive = true;
+  const vw = window.innerWidth, vh = window.innerHeight, ins = hudView.ins, dpr = hudView.dpr;
+  const aw = vw - ins.l - ins.r, ah = vh - ins.t - ins.b;
+  const sc = Math.min(aw / W, ah / H);
+  overlayView.sc = sc; overlayView.ox = ins.l + (aw - W * sc) / 2; overlayView.oy = ins.t + (ah - H * sc) / 2;
+  hudCtx.setTransform(dpr * sc, 0, 0, dpr * sc, overlayView.ox * dpr, overlayView.oy * dpr);
+  hudCtx.imageSmoothingEnabled = false;
+  const bl = -overlayView.ox / sc, bt = -overlayView.oy / sc, bW = vw / sc, bH = vh / sc;
+  const origFill = hudCtx.fillRect;
+  hudCtx.fillRect = function (x, y, w, h) {   // the modals' full-frame dim becomes a full-screen dim
+    return (x === 0 && y === 0 && w === W && h === H) ? origFill.call(this, bl, bt, bW, bH) : origFill.call(this, x, y, w, h);
+  };
+  ctx = hudCtx;
+  try {
+    if (game.mode === "CAUGHT") renderCaught();
+    if (game.mode === "EXIT") renderRide();
+    if (game.mode === "WIN") renderWin();
+    if (game.mode === "LOSE") renderLose();
+    if (menu.open) renderMenu(); else if (howtoOpen) renderHowToPlay();
+  } finally { ctx = mainCtx; delete hudCtx.fillRect; }
+}
+
 function render() {
   // Pick the layout for this frame. Touch gameplay uses the cover-scaled world +
   // viewport-fixed HUD/controls; every other screen keeps the letterboxed full frame.
   // The whole play session (playing, caught, paused) keeps ONE layout: the cover-scaled game frame.
   // Modals never change it; they are drawn on the viewport layer above it (see overlay pass below).
-  const wantCover = touchUI && (game.mode === "PLAY" || game.mode === "CAUGHT" || game.mode === "PAUSED" || game.mode === "EXIT" || game.mode === "WIN" || game.mode === "LOSE");
+  const wantCover = touchUI && (game.mode === "TITLE" || game.mode === "PLAY" || game.mode === "CAUGHT" || game.mode === "PAUSED" || game.mode === "EXIT" || game.mode === "WIN" || game.mode === "LOSE");
   const wantMode = wantCover ? "cover" : "contain";
   if (wantMode !== layoutMode) {
     layoutMode = wantMode;
@@ -3647,7 +3670,15 @@ function render() {
   }
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, W, H);
-  if (game.mode === "TITLE") { renderTitle(); if (menu.open) renderMenu(); else if (howtoOpen) renderHowToPlay(); return; }
+  if (game.mode === "TITLE") {
+    renderTitle();
+    if (wantCover) {
+      hudCtx.setTransform(1, 0, 0, 1, 0, 0); hudCtx.clearRect(0, 0, hudCanvas.width, hudCanvas.height);
+      overlayActive = false;
+      if (menu.open || howtoOpen) drawOverlayPass();
+    } else if (menu.open) renderMenu(); else if (howtoOpen) renderHowToPlay();
+    return;
+  }
   ctx.save();
   if (performance.now() < game.shakeUntil) {
     const m = game.shakeMag;
@@ -3676,26 +3707,7 @@ function render() {
   if (wantCover && (game.mode === "CAUGHT" || game.mode === "EXIT" || game.mode === "WIN" || game.mode === "LOSE" || menu.open || howtoOpen)) {
     // Layer order: game frame (main canvas) -> HUD -> purple/dim overlay -> modal, the last three on the
     // viewport layer. The modal is fitted into the safe area; its dim bleeds to every screen edge.
-    overlayActive = true;
-    const vw = window.innerWidth, vh = window.innerHeight, ins = hudView.ins, dpr = hudView.dpr;
-    const aw = vw - ins.l - ins.r, ah = vh - ins.t - ins.b;
-    const sc = Math.min(aw / W, ah / H);
-    overlayView.sc = sc; overlayView.ox = ins.l + (aw - W * sc) / 2; overlayView.oy = ins.t + (ah - H * sc) / 2;
-    hudCtx.setTransform(dpr * sc, 0, 0, dpr * sc, overlayView.ox * dpr, overlayView.oy * dpr);
-    hudCtx.imageSmoothingEnabled = false;
-    const bl = -overlayView.ox / sc, bt = -overlayView.oy / sc, bW = vw / sc, bH = vh / sc;
-    const origFill = hudCtx.fillRect;
-    hudCtx.fillRect = function (x, y, w, h) {   // the modals' full-frame dim becomes a full-screen dim
-      return (x === 0 && y === 0 && w === W && h === H) ? origFill.call(this, bl, bt, bW, bH) : origFill.call(this, x, y, w, h);
-    };
-    ctx = hudCtx;
-    try {
-      if (game.mode === "CAUGHT") renderCaught();
-      if (game.mode === "EXIT") renderRide();
-      if (game.mode === "WIN") renderWin();
-      if (game.mode === "LOSE") renderLose();
-      if (menu.open) renderMenu(); else if (howtoOpen) renderHowToPlay();
-    } finally { ctx = mainCtx; delete hudCtx.fillRect; }
+    drawOverlayPass();
   } else if (!wantCover) {
   if (game.mode === "CAUGHT") renderCaught();
   if (game.mode === "EXIT") renderRide();
@@ -6542,13 +6554,27 @@ function renderHUD() {
 
 /* --------------------------- SCREENS --------------------------- */
 function renderTitle() {
+  // Touch: the title uses the same cover-scaled frame as gameplay, so the visible region can be
+  // cropped (top / sides). Re-flow the composition into it instead of letterboxing.
+  let vt = 0, vl = 0, vr = W;
+  if (layoutMode === "cover") {
+    const r = canvas.getBoundingClientRect();
+    vt = Math.max(0, -r.top) * H / r.height;
+    vl = Math.max(0, -r.left) * W / r.width;
+    vr = W - vl;
+  }
+  const topPad = vt > 0 ? vt + 12 : 18;
+  TITLE_SETTINGS.y = topPad; TITLE_HOWTO.y = topPad;
+  TITLE_SETTINGS.x = vr - 152 + (vl > 0 ? 0 : 0); TITLE_HOWTO.x = vl + 18;
   ctx.fillStyle = "#EAF3F6"; ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = C.floor1; ctx.fillRect(0, GY, W, H - GY);
   ctx.fillStyle = "rgba(38,52,70,0.06)"; ctx.fillRect(0, GY, W, 6);   // floor seam, grounds the props
 
   // window box: centered on the canvas, with equal margins on every side
-  const winW = 940, winX = Math.round((W - winW) / 2);
-  const winY = 54, winH = 300;
+  const visW = vr - vl;
+  const winW = Math.min(940, visW - 150), winX = Math.round((W - winW) / 2);
+  const winY = vt > 0 ? Math.round(vt + 56) : 54;
+  const winH = vt > 0 ? Math.max(240, Math.min(300, 412 - winY)) : 300;
   ctx.fillStyle = "#B8C1CB"; ctx.fillRect(winX, winY, winW, winH);
   // same city as the gameplay wall, drifting very slowly behind the title
   const TL = cityLook(dayProgress(), winY + 8, winH - 16);
@@ -6564,7 +6590,7 @@ function renderTitle() {
   drawStickies(winX + winW + 14, winY + 60, 3, 5);
 
   // title card — centered within the window box with matching top/bottom margin
-  const cardW = 620, cardH = 228;
+  const cardW = Math.min(620, winW - 40), cardH = Math.min(228, winH - 12);
   const cardX = Math.round((W - cardW) / 2), cardY = Math.round(winY + (winH - cardH) / 2);
   ctx.fillStyle = "rgba(38,52,70,0.92)"; ctx.fillRect(cardX, cardY, cardW, cardH);
   ctx.strokeStyle = C.teal; ctx.lineWidth = 2; ctx.strokeRect(cardX + 4, cardY + 4, cardW - 8, cardH - 8);
@@ -6588,7 +6614,7 @@ function renderTitle() {
   const best = readBest();
   ctx.font = `700 10px ${F_UI}`; ctx.fillStyle = "#3A4658";
   const bestTxt = best.daily ? `  ·  TODAY'S BEST ${clockString(best.daily)}` : "";
-  ctx.fillText(`DAILY SHIFT · ${todayLabel()}${bestTxt}`, W / 2, winY + winH + 30);
+  ctx.fillText(`DAILY SHIFT · ${todayLabel()}${bestTxt}`, W / 2, vt > 0 ? topPad + 22 : winY + winH + 30);
 
   // settings pill
   roundRect(TITLE_SETTINGS.x, TITLE_SETTINGS.y, TITLE_SETTINGS.w, TITLE_SETTINGS.h, 17, "#FFFFFF", "rgba(38,52,70,0.12)", true);
