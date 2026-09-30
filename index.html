@@ -906,7 +906,7 @@ function fitCanvasResolution() {
   fitHudCanvas();
 
   // keep the backing store sane on big tablets when the cover canvas overshoots the screen
-  const maxPx = 4.4e6;
+  const maxPx = 2.6e6;   // phones (~1.6M px) unaffected; tablets render ~1.5x instead of 2x
   if (cssW * cssH * dpr * dpr > maxPx) dpr = Math.max(1, Math.sqrt(maxPx / (cssW * cssH)));
   const bw = Math.round(cssW * dpr), bh = Math.round(cssH * dpr);
   if (canvas.width === bw && canvas.height === bh) return;
@@ -1123,6 +1123,7 @@ const Haptics = {
     const key = Array.isArray(pattern) ? pattern.join(",") : pattern;
     if (!force && this.lastByName[key] && t - this.lastByName[key] < 80) return;   // dedupe same-event re-fires
     this.lastByName[key] = t;
+    if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;   // Chrome blocks (and logs) vibrate before a tap
     try { navigator.vibrate(pattern); } catch (e) {}
   },
 };
@@ -1565,10 +1566,10 @@ function menuItems() {
   // In-game pause: just two CTAs at the bottom — Start Over (left) and the
   // primary green Resume (right, where Quit to Title used to sit). No
   // standalone top Resume button and no Quit here.
-  if (menu.from === "PLAY") return [...toggles, { id: "howto", label: "How to play" }, { id: "restart", label: "Start over" }, { id: "resume", label: "Resume" }];
+  if (menu.from === "PLAY") return [...toggles, { id: "restart", label: "Start over" }, { id: "resume", label: "Resume" }];
   // Settings opened from the title screen: unchanged — single "Back" primary
   // button up top, no bottom row.
-  return [{ id: "resume", label: "Back" }, ...toggles, { id: "howto", label: "How to play" }];
+  return [{ id: "resume", label: "Back" }, ...toggles];   // How to play has its own pill on the title screen
 }
 function openMenu() {
   if (menu.open) return;
@@ -3630,7 +3631,7 @@ function render() {
   // viewport-fixed HUD/controls; every other screen keeps the letterboxed full frame.
   // The whole play session (playing, caught, paused) keeps ONE layout: the cover-scaled game frame.
   // Modals never change it; they are drawn on the viewport layer above it (see overlay pass below).
-  const wantCover = touchUI && (game.mode === "PLAY" || game.mode === "CAUGHT" || game.mode === "PAUSED");
+  const wantCover = touchUI && (game.mode === "PLAY" || game.mode === "CAUGHT" || game.mode === "PAUSED" || game.mode === "EXIT" || game.mode === "WIN" || game.mode === "LOSE");
   const wantMode = wantCover ? "cover" : "contain";
   if (wantMode !== layoutMode) {
     layoutMode = wantMode;
@@ -3672,7 +3673,7 @@ function render() {
     renderHUD();
   }
   overlayActive = false;
-  if (wantCover && (game.mode === "CAUGHT" || menu.open || howtoOpen)) {
+  if (wantCover && (game.mode === "CAUGHT" || game.mode === "EXIT" || game.mode === "WIN" || game.mode === "LOSE" || menu.open || howtoOpen)) {
     // Layer order: game frame (main canvas) -> HUD -> purple/dim overlay -> modal, the last three on the
     // viewport layer. The modal is fitted into the safe area; its dim bleeds to every screen edge.
     overlayActive = true;
@@ -3690,6 +3691,9 @@ function render() {
     ctx = hudCtx;
     try {
       if (game.mode === "CAUGHT") renderCaught();
+      if (game.mode === "EXIT") renderRide();
+      if (game.mode === "WIN") renderWin();
+      if (game.mode === "LOSE") renderLose();
       if (menu.open) renderMenu(); else if (howtoOpen) renderHowToPlay();
     } finally { ctx = mainCtx; delete hudCtx.fillRect; }
   } else if (!wantCover) {
