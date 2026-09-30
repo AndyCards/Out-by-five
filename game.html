@@ -784,17 +784,7 @@ function fitCanvasResolution() {
   canvas.style.width = cssW + "px";
   canvas.style.height = cssH + "px";
 
-  // On mobile (coarse pointer / touch), zoom the canvas further via CSS
-  // transform so it fills the full viewport width with no side bars.
-  // The transform scale is purely visual — all game coordinates are unchanged.
-  // overflow: hidden on .wrap clips the ~6% of sky/floor that overhangs.
-  if (typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches) {
-    const fillScale = availW / cssW;   // extra zoom needed to reach full width
-    canvas.style.transformOrigin = "center center";
-    canvas.style.transform = fillScale > 1 ? `scale(${fillScale.toFixed(4)})` : "";
-  } else {
-    canvas.style.transform = "";
-  }
+  canvas.style.transform = "";
 
   const bw = Math.round(cssW * dpr), bh = Math.round(cssH * dpr);
   if (canvas.width === bw && canvas.height === bh) return;
