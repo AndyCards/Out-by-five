@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Out By Five</title>
 <style>
 /* Fredoka: SIL Open Font License 1.1 */
@@ -59,7 +59,12 @@
     /* Full-screen layer behind .wrap showing a blurred, scaled copy of the
        current game frame. Matches the game sky colour for seamless side bars. */
   }
+  /* Touch gameplay ("cover" mode): the canvas is scaled UNIFORMLY to cover the
+     viewport and the overflow is cropped, never stretched. The crop is anchored
+     to the bottom so the floor/feet stay in view and only sky is trimmed. */
+  .wrap.cover { align-items: flex-end; }
   #game {
+    flex: none;
     background: #EAF3F6;
     image-rendering: pixelated;
     image-rendering: crisp-edges;
@@ -90,7 +95,58 @@
     -webkit-user-select: none; user-select: none;
     -webkit-touch-callout: none;
   }
+
+  /* ---- Mobile UI layers: fixed to the BROWSER VIEWPORT, never to the canvas.
+     They ignore canvas size, camera zoom and the canvas's coordinate system. ---- */
+  #safeProbe {
+    position: fixed; top: 0; left: 0; width: 0; height: 0; visibility: hidden; pointer-events: none;
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+             env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  }
+  #hudCanvas {
+    position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; height: 100dvh;
+    pointer-events: none; z-index: 5; display: none;
+  }
+  #touchUI {
+    --btn: clamp(54px, 15vh, 76px);
+    --gap: 8px;
+    --edge: 12px;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+    display: none; pointer-events: none;
+    padding-left:   max(var(--edge), env(safe-area-inset-left, 0px));
+    padding-right:  max(var(--edge), env(safe-area-inset-right, 0px));
+    padding-bottom: max(var(--edge), env(safe-area-inset-bottom, 0px));
+    justify-content: space-between; align-items: flex-end;
+  }
+  body.play-touch #touchUI { display: flex; }
+  body.play-touch #hudCanvas { display: block; }
+  .tpad { display: grid; gap: var(--gap); pointer-events: none; }
+  .tpad.left  { grid-template-columns: repeat(3, var(--btn)); grid-template-rows: repeat(2, var(--btn)); }
+  .tpad.right { grid-template-columns: repeat(3, auto); align-items: end; }
+  .tbtn {
+    pointer-events: auto; touch-action: none;
+    width: var(--btn); height: var(--btn);
+    display: flex; align-items: center; justify-content: center;
+    padding: 0; margin: 0; cursor: pointer;
+    font-family: "Fredoka", system-ui, sans-serif; font-weight: 900;
+    font-size: calc(var(--btn) * 0.36); color: #fff; line-height: 1;
+    text-shadow: 0 1px 3px rgba(10,18,28,0.55);
+    background: rgba(255,255,255,0.20);
+    border: 2px solid rgba(255,255,255,0.85);
+    border-radius: 18px;
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    box-shadow: 0 2px 10px rgba(10,18,28,0.25);
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+    outline: none;
+  }
+  .tbtn.jump { width: calc(var(--btn) * 1.25); height: calc(var(--btn) * 1.25); border-radius: 24px; font-size: calc(var(--btn) * 0.22); letter-spacing: 0.04em; }
+  .tbtn.held { background: rgba(20,184,176,0.88); border-color: #fff; }
+  .t-up    { grid-column: 2; grid-row: 1; }
+  .t-left  { grid-column: 1; grid-row: 2; }
+  .t-down  { grid-column: 2; grid-row: 2; }
+  .t-right { grid-column: 3; grid-row: 2; }
   @media (pointer: coarse) and (orientation: portrait) {
+    #touchUI, #hudCanvas { display: none !important; }
     .wrap { display: none; }
     .hint { display: none; }
     #rotatePrompt {
@@ -114,6 +170,21 @@
 <canvas id="gameBlur" width="1104" height="621"></canvas>
 <div class="wrap">
   <canvas id="game" width="1104" height="621" tabindex="0"></canvas>
+</div>
+<canvas id="hudCanvas"></canvas>
+<div id="safeProbe"></div>
+<div id="touchUI" aria-hidden="true">
+  <div class="tpad left">
+    <button class="tbtn t-up"    data-key="arrowup"    tabindex="-1" aria-label="Climb up">&#9650;</button>
+    <button class="tbtn t-left"  data-key="arrowleft"  tabindex="-1" aria-label="Move left">&#9664;</button>
+    <button class="tbtn t-down"  data-key="arrowdown"  tabindex="-1" aria-label="Duck">&#9660;</button>
+    <button class="tbtn t-right" data-key="arrowright" tabindex="-1" aria-label="Move right">&#9654;</button>
+  </div>
+  <div class="tpad right">
+    <button class="tbtn t-e"    data-key="e"  tabindex="-1" aria-label="Use">E</button>
+    <button class="tbtn t-f"    data-key="f"  tabindex="-1" aria-label="Throw file">F</button>
+    <button class="tbtn jump"   data-key=" "  tabindex="-1" aria-label="Jump">JUMP</button>
+  </div>
 </div>
 <div id="rotatePrompt">
   <div class="icon">📱</div>
@@ -748,7 +819,8 @@ const Sprites = (() => {
 })();
 
 const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+let ctx = canvas.getContext("2d");
+const mainCtx = ctx;
 ctx.imageSmoothingEnabled = false;
 canvas.focus();
 
@@ -773,27 +845,73 @@ const H = 621;
    instead of stretching to fill odd aspect ratios.
    The backing pixel buffer is additionally sized by devicePixelRatio so the
    art stays crisp instead of being upscaled/blurred on high-DPI screens. */
-function fitCanvasResolution() {
+/* Layout modes:
+   "contain" — desktop, title, menus, caught/result cards: the whole W x H frame
+               is shown, letterboxed, so nothing authored near an edge is lost.
+   "cover"   — touch gameplay: the same W x H world is scaled UNIFORMLY to cover
+               the viewport and the overflow is cropped (bottom-anchored), so the
+               play field fills the phone. Nothing is ever stretched.
+   In cover mode the HUD and touch controls do NOT live on this canvas at all:
+   they are anchored to the browser viewport (see hudCanvas / #touchUI). */
+let layoutMode = "contain";
+const hudCanvas = document.getElementById("hudCanvas");
+const hudCtx = hudCanvas.getContext("2d");
+const safeProbe = document.getElementById("safeProbe");
+const wrapEl = document.querySelector(".wrap");
+// HUD space: origin = top-left of the safe area, unit = hudScale CSS px.
+const hudView = { ox: 0, oy: 0, scale: 1, w: W, h: H, dpr: 1 };
+let HUD_W = W;   // logical width renderHUD lays out in (W in contain mode)
+
+function readSafeInsets() {
+  const cs = getComputedStyle(safeProbe);
+  const f = (v) => parseFloat(v) || 0;
+  return { t: f(cs.paddingTop), r: f(cs.paddingRight), b: f(cs.paddingBottom), l: f(cs.paddingLeft) };
+}
+
+function fitHudCanvas() {
+  const availW = window.innerWidth, availH = window.innerHeight;
+  if (availW < 1 || availH < 1) return;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const bw = Math.round(availW * dpr), bh = Math.round(availH * dpr);
+  if (hudCanvas.width !== bw || hudCanvas.height !== bh) {
+    hudCanvas.width = bw; hudCanvas.height = bh;
+    hudCtx.imageSmoothingEnabled = false;
+  }
+  const ins = readSafeInsets();
+  const scale = Math.max(0.75, Math.min(1.1, availH / 430));   // HUD size follows the screen, not the canvas
+  hudView.scale = scale; hudView.dpr = dpr;
+  hudView.ox = ins.l; hudView.oy = ins.t;
+  hudView.w = Math.max(320, (availW - ins.l - ins.r) / scale);
+  hudView.h = Math.max(200, (availH - ins.t - ins.b) / scale);
+}
+
+function fitCanvasResolution() {
+  let dpr = Math.min(window.devicePixelRatio || 1, 2);
   const availW = window.innerWidth, availH = window.innerHeight;
   if (availW < 1 || availH < 1) return;   // not laid out yet
 
   // ONE scale factor for both axes — keeps proportions intact.
-  const scale = Math.min(availW / W, availH / H);
+  // contain = min (letterbox), cover = max (crop). Never two different factors.
+  const cover = layoutMode === "cover";
+  const scale = cover ? Math.max(availW / W, availH / H) : Math.min(availW / W, availH / H);
   const cssW = Math.round(W * scale), cssH = Math.round(H * scale);
   canvas.style.width = cssW + "px";
   canvas.style.height = cssH + "px";
-  document.documentElement.style.setProperty("--game-w", cssW + "px");
-
   canvas.style.transform = "";
+  wrapEl.classList.toggle("cover", cover);
+  fitHudCanvas();
 
+  // keep the backing store sane on big tablets when the cover canvas overshoots the screen
+  const maxPx = 4.4e6;
+  if (cssW * cssH * dpr * dpr > maxPx) dpr = Math.max(1, Math.sqrt(maxPx / (cssW * cssH)));
   const bw = Math.round(cssW * dpr), bh = Math.round(cssH * dpr);
   if (canvas.width === bw && canvas.height === bh) return;
   canvas.width = bw;
   canvas.height = bh;
   ctx.imageSmoothingEnabled = false;   // resetting width/height clears context state
-  // bw/W === bh/H (both equal scale*dpr), so this transform is uniform too.
-  ctx.setTransform(bw / W, 0, 0, bh / H, 0, 0);
+  // bw/W and bh/H both equal scale*dpr (to rounding), so this transform is uniform too.
+  mainCtx.setTransform(bw / W, 0, 0, bh / H, 0, 0);
+  mainCtx.imageSmoothingEnabled = false;
 }
 fitCanvasResolution();
 window.addEventListener("resize", fitCanvasResolution);
@@ -1296,32 +1414,16 @@ function keyPressed(...ks) { return ks.some(k => pressed.has(k)); }
 
 /* ---- touch controls (GDD: mobile) ---- */
 let touchUI = (typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches);
-// Touch controls — laid out for thumbs in landscape:
-// Left thumb: ◀ left edge, ▶ beside it, ▼ duck tucked between them
-// Right thumb: JUMP large bottom-right, E and F stacked above it
-// All buttons sit in the bottom ~80px so they never cover the play field
-// All directional + action buttons share the same size for visual consistency
-const _BS = 80;   // button size (square) — uniform for all buttons
-const _BG = 8;    // gap between buttons
-const _BY = H - _BS - 14;          // bottom row Y
-const _UY = _BY - _BS - _BG;       // UP button Y (above bottom row)
-const TOUCH_BTNS = [
-  // Left cluster: ◀ ▼ ▶ on bottom row, ▲ above ▼
-  { key: "arrowleft",  label: "◀", x: 10,                        y: _BY,  w: _BS, h: _BS, pad: { l: 10, r: 5, t: 12, b: 8 } },
-  { key: "arrowup",    label: "▲", x: 10 + _BS + _BG,            y: _UY,  w: _BS, h: _BS, pad: { l: 5,  r: 5, t: 12, b: 4 } },
-  { key: "arrowdown",  label: "▼", x: 10 + _BS + _BG,            y: _BY,  w: _BS, h: _BS, pad: { l: 5,  r: 5, t: 12, b: 8 } },
-  { key: "arrowright", label: "▶", x: 10 + (_BS + _BG) * 2,      y: _BY,  w: _BS, h: _BS, pad: { l: 5, r: 10, t: 12, b: 8 } },
-  // Right cluster: JUMP large bottom-right, E and F to its left
-  { key: " ",  label: "JUMP", x: W - _BS - 10,            y: _BY - 10, w: _BS + 10, h: _BS + 10, pad: { l: 8, r: 8, t: 10, b: 8 } },
-  { key: "f",  label: "F",    x: W - (_BS + 10) - _BS - _BG - 10, y: _BY, w: _BS, h: _BS, pad: { l: 5, r: 5, t: 12, b: 8 } },
-  { key: "e",  label: "E",    x: W - (_BS + 10) - (_BS + _BG) * 2 - 10, y: _BY, w: _BS, h: _BS, pad: { l: 5, r: 5, t: 12, b: 8 } },
-];
-const ZERO_PAD = { l: 0, r: 0, t: 0, b: 0 };
-function hitTouchBtn(b, p) {
-  const pad = b.pad || ZERO_PAD;
-  return p.x >= b.x - pad.l && p.x <= b.x + b.w + pad.r && p.y >= b.y - pad.t && p.y <= b.y + b.h + pad.b;
-}
+// Touch controls are real DOM buttons (#touchUI) fixed to the browser viewport with
+// safe-area insets — they never use world/canvas coordinates. See wireTouchControls().
 const MENU_CHIP = { x: W - 14 - 56, y: 14, w: 56, h: 56 };
+function menuChipHit(ev, p) {
+  if (layoutMode !== "cover") return hit(MENU_CHIP, p);
+  // HUD lives in viewport space: convert the pointer into HUD units and pad the target
+  const hx = (ev.clientX - hudView.ox) / hudView.scale, hy = (ev.clientY - hudView.oy) / hudView.scale;
+  const r = { x: HUD_W - 14 - 56 - 12, y: 14 - 12, w: 56 + 24, h: 56 + 24 };
+  return hit(r, { x: hx, y: hy });
+}
 const TITLE_SETTINGS = { x: W - 152, y: 18, w: 134, h: 34 };
 // title-screen "How to Play" — a single static panel (not a paginated flow):
 // objective, controls, and the three enemy archetypes, closed on any tap/key.
@@ -1378,12 +1480,8 @@ canvas.addEventListener("pointerdown", (ev) => {
     const b = caughtBtns.find(b => hit(b, p));
     if (b) { tapHaptic(); if (b.id === "continue") resumeAfterCaught(); else startGame(); return; }
   }
-  if (touchUI && game.mode === "PLAY") {
-    const b = TOUCH_BTNS.find(b => hitTouchBtn(b, p));
-    if (b) { touchKeys.set(ev.pointerId, b.key); pressKey(b.key); tapHaptic(); try { canvas.setPointerCapture(ev.pointerId); } catch(e){} return; }
-  }
   if (game.mode === "EXIT") { game.skipRide = true; return; }
-  if (game.mode === "PLAY" && hit(MENU_CHIP, p)) { tapHaptic(); openMenu(); return; }
+  if (game.mode === "PLAY" && menuChipHit(ev, p)) { tapHaptic(); openMenu(); return; }
   if (game.mode === "TITLE" && hit(TITLE_SETTINGS, p)) { tapHaptic(); openMenu(); return; }
   if (game.mode === "TITLE" && hit(TITLE_HOWTO, p)) { tapHaptic(); howtoOpen = true; Sound.play("menu"); return; }
   if (game.mode === "TITLE") { tapHaptic(); requestMobileFullscreen(); startGame(); return; }
@@ -1394,15 +1492,58 @@ canvas.addEventListener("pointerdown", (ev) => {
     return;   // clicks elsewhere on the results screen do nothing (no accidental restarts)
   }
 });
-canvas.addEventListener("pointermove", (ev) => {
-  if (!touchKeys.has(ev.pointerId)) return;
-  const b = TOUCH_BTNS.find(b => hitTouchBtn(b, canvasPoint(ev)));
-  if (b && b.key !== touchKeys.get(ev.pointerId)) {
-    releaseTouch(ev.pointerId); touchKeys.set(ev.pointerId, b.key); pressKey(b.key);
-    if (touchUI) Haptics.buzz(HAPTIC.light);
-  }
-});
 ["pointerup", "pointercancel", "pointerleave"].forEach(t => canvas.addEventListener(t, (ev) => releaseTouch(ev.pointerId)));
+
+/* ---- Touch controls: DOM buttons fixed to the viewport (never the canvas) ---- */
+const touchRoot = document.getElementById("touchUI");
+const touchBtnEls = [...touchRoot.querySelectorAll(".tbtn")];
+function syncTouchHeld() {
+  const held = new Set(touchKeys.values());
+  for (const el of touchBtnEls) el.classList.toggle("held", held.has(el.dataset.key));
+}
+function touchBtnAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  return el && el.closest ? el.closest(".tbtn") : null;
+}
+function releaseAllTouchButtons() {
+  for (const id of [...touchKeys.keys()]) releaseTouch(id);
+  syncTouchHeld();
+}
+function wireTouchControls() {
+  touchRoot.addEventListener("pointerdown", (ev) => {
+    const el = ev.target.closest && ev.target.closest(".tbtn");
+    if (!el) return;
+    ev.preventDefault();
+    touchUI = true;
+    Sound.unlock();
+    if (game.mode !== "PLAY") return;
+    touchKeys.set(ev.pointerId, el.dataset.key);
+    pressKey(el.dataset.key);
+    if (touchUI) Haptics.buzz(HAPTIC.light);
+    syncTouchHeld();
+  }, { passive: false });
+  // slide from one button to the next without lifting (d-pad glide)
+  touchRoot.addEventListener("pointermove", (ev) => {
+    if (!touchKeys.has(ev.pointerId)) return;
+    const el = touchBtnAt(ev.clientX, ev.clientY);
+    const cur = touchKeys.get(ev.pointerId);
+    if (el && el.dataset.key !== cur) {
+      releaseTouch(ev.pointerId);
+      touchKeys.set(ev.pointerId, el.dataset.key);
+      pressKey(el.dataset.key);
+      Haptics.buzz(HAPTIC.light);
+      syncTouchHeld();
+    } else if (!el) {
+      releaseTouch(ev.pointerId); syncTouchHeld();
+    }
+  });
+  const up = (ev) => { releaseTouch(ev.pointerId); syncTouchHeld(); };
+  touchRoot.addEventListener("pointerup", up);
+  touchRoot.addEventListener("pointercancel", up);
+  touchRoot.addEventListener("lostpointercapture", up);
+  touchRoot.addEventListener("contextmenu", (e) => e.preventDefault());
+}
+wireTouchControls();
 
 /* ---- settings / pause menu ---- */
 const menu = { open: false, idx: 0, from: "PLAY", rects: [] };
@@ -2458,8 +2599,15 @@ function updateCamera(dt) {
     else targetFrac = game.camOffsetFrac ?? 0.5;  // idle — hold last offset, no jitter
   }
   game.camOffsetFrac = (game.camOffsetFrac ?? 0.5) + (targetFrac - (game.camOffsetFrac ?? 0.5)) * (1 - Math.pow(0.0006, dt));
-  const maxCam = Math.max(0, LEVEL_W - viewW);
-  const target = clamp(player.x - viewW * game.camOffsetFrac, 0, maxCam);
+  // Cover mode on a screen narrower than 16:9 crops the canvas sides. Frame the camera
+  // on the part that is actually on screen so the level's ends line up with the screen edges.
+  let crop = 0, visW = viewW;
+  if (layoutMode === "cover") {
+    const cssW = parseFloat(canvas.style.width) || window.innerWidth;
+    const vis = Math.min(1, window.innerWidth / cssW);
+    visW = viewW * vis; crop = (viewW - visW) / 2;
+  }
+  const target = clamp(player.x - crop - visW * game.camOffsetFrac, -crop, Math.max(-crop, LEVEL_W - viewW + crop));
   game.cameraX += (target - game.cameraX) * (1 - Math.pow(0.0001, dt));   // frame-rate independent
   game.camZoom = zoom;
   game.camViewW = viewW;
@@ -3471,6 +3619,16 @@ function lose() {
 
 /* --------------------------- RENDER --------------------------- */
 function render() {
+  // Pick the layout for this frame. Touch gameplay uses the cover-scaled world +
+  // viewport-fixed HUD/controls; every other screen keeps the letterboxed full frame.
+  const wantCover = touchUI && game.mode === "PLAY" && !menu.open && !howtoOpen;
+  const wantMode = wantCover ? "cover" : "contain";
+  if (wantMode !== layoutMode) {
+    layoutMode = wantMode;
+    fitCanvasResolution();
+    document.body.classList.toggle("play-touch", wantCover);
+    if (!wantCover) { releaseAllTouchButtons(); hudCtx.setTransform(1, 0, 0, 1, 0, 0); hudCtx.clearRect(0, 0, hudCanvas.width, hudCanvas.height); }
+  }
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, W, H);
   if (game.mode === "TITLE") { renderTitle(); if (menu.open) renderMenu(); else if (howtoOpen) renderHowToPlay(); return; }
@@ -3485,13 +3643,24 @@ function render() {
   if (zoom !== 1) { ctx.translate(0, GY * (1 - zoom)); ctx.scale(zoom, zoom); }
   renderWorld(Math.round(game.cameraX));
   ctx.restore();
-  renderHUD();
+  if (wantCover) {
+    // HUD drawn on its own viewport-fixed canvas, in safe-area space — not the world canvas.
+    const k = hudView.dpr * hudView.scale;
+    hudCtx.setTransform(1, 0, 0, 1, 0, 0);
+    hudCtx.clearRect(0, 0, hudCanvas.width, hudCanvas.height);
+    hudCtx.setTransform(k, 0, 0, k, hudView.ox * hudView.dpr, hudView.oy * hudView.dpr);
+    hudCtx.imageSmoothingEnabled = false;
+    HUD_W = hudView.w; ctx = hudCtx;
+    try { renderHUD(); } finally { ctx = mainCtx; HUD_W = W; }
+  } else {
+    HUD_W = W;
+    renderHUD();
+  }
   if (game.mode === "CAUGHT") renderCaught();
   if (game.mode === "EXIT") renderRide();
   if (game.mode === "WIN") renderWin();
   if (game.mode === "LOSE") renderLose();
   if (menu.open) renderMenu();
-  if (touchUI && game.mode === "PLAY") drawTouchControls();
 
   /* Update blur background: copy the current game frame to the blur canvas,
      scale it to cover the entire viewport (maintaining aspect ratio), and apply
@@ -6206,7 +6375,7 @@ function renderHUD() {
   const pmW = pixelTextWidth(pmStr, pmSize, 1);
   const pillPad = 22;
   const pillW = numW + pmW + pillPad * 2 + 12, pillH = 58;
-  const pillX = Math.round((W - pillW) / 2), pillY = 12;
+  const pillX = Math.round((HUD_W - pillW) / 2), pillY = 12;
   const pillFill = warn && Math.floor(now / 250) % 2 === 0 ? "#3A1F26" : C.navyDark;
   roundRect(pillX, pillY, pillW, pillH, 18, pillFill, null, true);
   ctx.fillStyle = "rgba(255,255,255,0.06)";
@@ -6245,7 +6414,7 @@ function renderHUD() {
       ctx.font = `800 12px ${F_UI}`;
       const tw = Math.ceil(ctx.measureText(game.banner.text).width);
       const tx = pixelTextWidth(game.banner.time, 2, 1);
-      const bw = tw + tx + 44, bx = Math.round((W - bw) / 2), by = 98 + Math.round((1 - a) * -8);
+      const bw = tw + tx + 44, bx = Math.round((HUD_W - bw) / 2), by = 98 + Math.round((1 - a) * -8);
       roundRect(bx, by, bw, 30, 15, "#D96A5A", null, true);
       drawPixelText(game.banner.time, bx + 14, by + 8, 2, "#FFFFFF", 1);
       ctx.fillStyle = "#FFFFFF"; ctx.textAlign = "left";
@@ -6265,7 +6434,7 @@ function renderHUD() {
       ctx.font = `800 10px ${F_UI}`;
       const label = game.toast.text;
       const tw = Math.ceil(ctx.measureText(label).width);
-      const bw = tw + 40, bx = Math.round((W - bw) / 2), by = 136 + Math.round((1 - a) * -6);
+      const bw = tw + 40, bx = Math.round((HUD_W - bw) / 2), by = 136 + Math.round((1 - a) * -6);
       roundRect(bx, by, bw, 22, 11, "rgba(27,38,52,0.9)", null, true);
       // tick mark
       ctx.strokeStyle = "#5BD6A8"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
@@ -6279,7 +6448,7 @@ function renderHUD() {
 
   // RIGHT: chips
   const chip = 56, gap = 8;
-  let rx = W - 14 - chip;
+  let rx = HUD_W - 14 - chip;
   roundRect(rx, 14, chip, chip, 14, "#FFFFFF", "rgba(38,52,70,0.06)", true);
   drawMenuIcon(rx + chip / 2, 14 + chip / 2);
   rx -= chip + gap;
@@ -7152,39 +7321,6 @@ function drawPrompt(x, bottomY, p) {
   ctx.font = `700 9px ${F_UI}`;
   ctx.fillStyle = "#FFFFFF"; ctx.textAlign = "left";
   ctx.fillText(p.t, cx, by + 14.5);
-}
-
-function drawTouchControls() {
-  // Dark gradient strip behind buttons so glass effect reads over any background
-  const barGrad = ctx.createLinearGradient(0, H - (_BS * 2 + _BG + 30), 0, H);
-  barGrad.addColorStop(0, "rgba(10,18,28,0)");
-  barGrad.addColorStop(1, "rgba(10,18,28,0.45)");
-  ctx.fillStyle = barGrad;
-  ctx.fillRect(0, H - (_BS * 2 + _BG + 30), W, _BS * 2 + _BG + 30);
-
-  for (const b of TOUCH_BTNS) {
-    const held = keys.has(b.key);
-    const isJump = b.key === " ";
-    const r = isJump ? 24 : 16;
-    // Glass fill
-    ctx.globalAlpha = held ? 0.92 : 0.28;
-    roundRect(b.x, b.y, b.w, b.h, r,
-      held ? C.teal : "rgba(255,255,255,0.15)",
-      null);
-    // White outline — always visible, stronger when held
-    ctx.globalAlpha = held ? 1 : 0.65;
-    roundRect(b.x, b.y, b.w, b.h, r,
-      null,
-      held ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.75)");
-    ctx.globalAlpha = 1;
-    // Label
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = `900 ${isJump ? 13 : 22}px ${F_UI}`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2 + 1);
-    ctx.textBaseline = "alphabetic";
-  }
 }
 
 /* --------------------------- MAIN LOOP --------------------------- */
