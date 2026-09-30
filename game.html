@@ -24,16 +24,24 @@
     color: #F5EFE3;
     font-family: "Fredoka", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     overflow: hidden;
-    /* The whole page IS the game — never let a stray tap/press select text,
-       trigger Safari's Copy/Look Up/Translate callout, or drag an image.
-       (Nothing outside this page shares these rules, so ordinary readable
-       pages elsewhere are unaffected.) */
+    /* The whole page IS the game — no text selection, no Safari callouts,
+       no browser zoom/scroll/overscroll anywhere. */
     -webkit-user-select: none; user-select: none;
     -webkit-touch-callout: none;
+    /* Prevent pull-to-refresh and overscroll bounce on iOS / Chrome Android */
+    overscroll-behavior: none;
+    /* Block ALL native browser touch gestures on the page level — pan, pinch,
+       double-tap zoom, and the long-press context menu that triggers
+       Copy/Look Up/Translate on Safari. The canvas re-declares this too, but
+       setting it here prevents any brief window during page load. */
+    touch-action: none;
   }
-  .wrap, #game, #gameBlur, .hint {
+  /* Belt-and-suspenders for every element inside the page. */
+  *, *::before, *::after {
     -webkit-user-select: none; user-select: none;
     -webkit-touch-callout: none;
+    /* Kill the blue tap flash on iOS */
+    -webkit-tap-highlight-color: transparent;
   }
   .wrap {
     position: fixed; inset: 0;
@@ -1348,6 +1356,16 @@ function requestMobileFullscreen() {
   } catch (e) {}
 }
 canvas.style.touchAction = "none";
+// Suppress the long-press context menu (Safari "Copy / Look Up / Translate")
+// and text-selection drag events on the canvas and the whole document.
+// CSS alone doesn't always catch these — the JS handler is the reliable backstop.
+document.addEventListener("contextmenu", (e) => e.preventDefault(), { passive: false });
+document.addEventListener("selectstart", (e) => e.preventDefault(), { passive: false });
+// Prevent any lingering scroll or zoom gestures on document and body
+document.addEventListener("touchmove", (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
+document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
+document.addEventListener("gesturechange", (e) => e.preventDefault(), { passive: false });
+document.addEventListener("gestureend", (e) => e.preventDefault(), { passive: false });
 canvas.addEventListener("pointerdown", (ev) => {
   canvas.focus();
   Sound.unlock();
