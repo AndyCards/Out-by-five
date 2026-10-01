@@ -3621,7 +3621,7 @@ function win() {
   };
   game.zoneIdx = ZONES.length - 1;
   Sound.stopMusic(); Sound.setMuffle(false);
-  if (game.result.best.newDaily || game.result.best.newAll) {
+  {
     // a sticky-note shower for a new best
     const cols = ["#FFE58A", "#FFB7C5", "#A8E6CF", "#9FD3F5", "#FFD08A"];
     game.confetti = Array.from({ length: 70 }, (_, i) => ({
@@ -3632,6 +3632,77 @@ function win() {
     game.confettiT = performance.now();
     setTimeout(() => Sound.play("confetti"), 250);
   }
+}
+function drawSparkle(x, y, r, a, col) {
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = col || "#FFFFFF";
+  ctx.beginPath();
+  ctx.moveTo(x, y - r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.quadraticCurveTo(x, y, x, y + r);
+  ctx.quadraticCurveTo(x, y, x - r, y); ctx.quadraticCurveTo(x, y, x, y - r); ctx.fill();
+  ctx.restore();
+}
+function drawStar5(x, y, r, col) {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r;
+    ctx[i ? "lineTo" : "moveTo"](x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+  }
+  ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+}
+// flat stat icons for the result rows — centred on (x, y), ~14px box
+function drawStatIcon(kind, x, y, col, timeStr) {
+  ctx.save();
+  const ink = "rgba(38,52,70,0.85)";
+  if (kind === "clock") {
+    let h = 4, m = 56;
+    const mt = /^(\d+):(\d+)/.exec(timeStr || ""); if (mt) { h = +mt[1] % 12; m = +mt[2]; }
+    ctx.fillStyle = "#FFFFFF"; ctx.beginPath(); ctx.arc(x, y, 6.5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
+    ctx.strokeStyle = ink; ctx.lineWidth = 1.5; ctx.lineCap = "round";
+    const ma = (m / 60) * Math.PI * 2 - Math.PI / 2, ha = ((h + m / 60) / 12) * Math.PI * 2 - Math.PI / 2;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(ma) * 4.4, y + Math.sin(ma) * 4.4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(ha) * 3, y + Math.sin(ha) * 3); ctx.stroke();
+  } else if (kind === "person") {
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y - 3.5, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x - 6, y + 6); ctx.quadraticCurveTo(x - 6, y - 0.5, x, y - 0.5); ctx.quadraticCurveTo(x + 6, y - 0.5, x + 6, y + 6); ctx.closePath(); ctx.fill();
+  } else if (kind === "star") {
+    drawStar5(x, y, 7, col);
+  } else if (kind === "paper") {
+    ctx.fillStyle = "#FFFFFF"; ctx.fillRect(x - 5, y - 7, 10, 14);
+    ctx.fillStyle = col; ctx.fillRect(x - 5, y - 7, 10, 3);
+    ctx.fillStyle = "rgba(120,112,96,0.55)"; ctx.fillRect(x - 3, y - 1.5, 6, 1); ctx.fillRect(x - 3, y + 1.5, 6, 1); ctx.fillRect(x - 3, y + 4, 4, 1);
+    ctx.strokeStyle = "rgba(38,52,70,0.28)"; ctx.lineWidth = 1; ctx.strokeRect(x - 5, y - 7, 10, 14);
+  } else if (kind === "alert") {
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, 6.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#FFFFFF"; ctx.fillRect(x - 1, y - 3.8, 2, 4.4); ctx.fillRect(x - 1, y + 2, 2, 2);
+  } else if (kind === "cup") {
+    ctx.fillStyle = "#EDE7DB"; ctx.fillRect(x - 5, y - 3, 9, 8);
+    ctx.fillStyle = "#D6CDBC"; ctx.fillRect(x + 1, y - 3, 3, 8);
+    ctx.fillStyle = col; ctx.fillRect(x - 5, y - 0.5, 9, 1.6);
+    ctx.fillStyle = "#EDE7DB"; ctx.fillRect(x + 4, y - 1.5, 3, 1.5); ctx.fillRect(x + 6, y - 1.5, 1.5, 5); ctx.fillRect(x + 4, y + 2, 3, 1.5);
+    ctx.fillStyle = "rgba(150,160,170,0.7)"; ctx.fillRect(x - 3, y - 7, 1, 3); ctx.fillRect(x, y - 7.5, 1, 3.5);
+  } else if (kind === "calendar") {
+    ctx.fillStyle = "#FFFFFF"; ctx.fillRect(x - 6, y - 5.5, 12, 12);
+    ctx.fillStyle = col; ctx.fillRect(x - 6, y - 5.5, 12, 4);
+    ctx.fillStyle = ink; ctx.fillRect(x - 3.5, y - 7.5, 1.6, 3); ctx.fillRect(x + 2, y - 7.5, 1.6, 3);
+    ctx.fillStyle = "rgba(38,52,70,0.45)";
+    for (let gx = 0; gx < 3; gx++) for (let gy = 0; gy < 2; gy++) ctx.fillRect(x - 4 + gx * 3.3, y + 0.5 + gy * 3, 2, 2);
+    ctx.strokeStyle = "rgba(38,52,70,0.28)"; ctx.lineWidth = 1; ctx.strokeRect(x - 6, y - 5.5, 12, 12);
+  }
+  ctx.restore();
+}
+// small gold trophy, sits opposite the happy employee in the win header
+function drawTrophy(cx, baseY, sc) {
+  ctx.save(); ctx.translate(cx, baseY); ctx.scale(sc, sc);
+  ctx.fillStyle = C.goldDark; ctx.fillRect(-12, -6, 24, 6);                 // base
+  ctx.fillStyle = C.gold; ctx.fillRect(-3, -16, 6, 11);                     // stem
+  ctx.beginPath(); ctx.moveTo(-14, -42); ctx.lineTo(14, -42); ctx.lineTo(10, -20); ctx.quadraticCurveTo(0, -12, -10, -20); ctx.closePath(); ctx.fill();   // cup
+  ctx.strokeStyle = C.gold; ctx.lineWidth = 3; ctx.beginPath();
+  ctx.arc(-14, -34, 6, Math.PI * 0.5, Math.PI * 1.5); ctx.stroke();           // handles
+  ctx.beginPath(); ctx.arc(14, -34, 6, -Math.PI * 0.5, Math.PI * 0.5); ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,0.45)"; ctx.fillRect(-9, -40, 3, 14);    // shine
+  drawStar5(0, -31, 5, "#FFF3C4");
+  ctx.restore();
 }
 function drawConfetti() {
   if (!game.confetti || !game.confetti.length) return;
@@ -7244,8 +7315,8 @@ function drawResultWide(win, r, rows, title, badge) {
   }
   if (win && r.best) {
     const b = r.best;
-    ctx.fillStyle = b.newDaily ? "#D96A5A" : "#6C7A8A"; ctx.font = `800 11px ${F_UI}`;
-    ctx.fillText(b.newAll ? "NEW ALL-TIME BEST!" : b.newDaily ? "NEW BEST TODAY!" : `TODAY'S BEST ${clockString(b.daily)}  ·  ALL-TIME ${clockString(b.all)}`, lcx, by2 + 4);
+    ctx.fillStyle = "#6C7A8A"; ctx.font = `800 11px ${F_UI}`;
+    ctx.fillText(`TODAY'S BEST ${clockString(b.daily)}  ·  ALL-TIME ${clockString(b.all)}`, lcx, by2 + 4);
   }
 
   // column divider + stat rows (right column)
@@ -7265,12 +7336,12 @@ function drawResultWide(win, r, rows, title, badge) {
     { id: "again", x: cx + pad + bw + g, y: by, w: bw, h: bh },
   ];
   const copied = performance.now() - (game.copiedAt || -1e9) < 1600;
-  roundRect(cx + pad, by, bw, bh, 8, "#FFFFFF", "rgba(38,52,70,0.14)", true);
-  ctx.textAlign = "center"; ctx.font = `800 16px ${F_UI}`;
+  pixelButton(cx + pad, by, bw, bh, "#FFFFFF", "#D8DDE2", false);
+  ctx.textAlign = "center"; ctx.font = `800 17px ${F_UI}`;
   ctx.fillStyle = copied ? "#1F9D6B" : C.navyDark;
-  ctx.fillText(copied ? "✓ COPIED!" : "SHARE RESULT", cx + pad + bw / 2, by + 33);
-  roundRect(cx + pad + bw + g, by, bw, bh, 8, win ? C.teal : C.navyDark, null, true);
-  ctx.fillStyle = "#FFFFFF"; ctx.fillText("↻ PLAY AGAIN", cx + pad + bw + g + bw / 2, by + 33);
+  ctx.fillText(copied ? "✓ COPIED!" : "SHARE RESULT", cx + pad + bw / 2, by + bh / 2 + 5);
+  pixelButton(cx + pad + bw + g, by, bw, bh, win ? C.teal : C.navyDark, win ? "#0B8A84" : "#0B1522", false);
+  ctx.fillStyle = "#FFFFFF"; ctx.fillText("↻ PLAY AGAIN", cx + pad + bw + g + bw / 2, by + bh / 2 + 5);
 }
 
 function renderResultCard(win) {
@@ -7303,20 +7374,45 @@ function renderResultCard(win) {
   const rowsTop = scoreY + (win && r.noMeetings ? 58 : 44);
   const lastRowY = rowsTop + (rows.length - 1) * rowGap;
   const badge = (r.titles && r.titles[0]) || null;
-  const bw = 202 * 1.2, bh = 46, gap = 9 * 1.2;
+  const gap = 12, bh = 46;
+  const bw = Math.floor((cw - 72 - gap) / 2);   // two buttons span exactly the stat-row width (36px margins)
   let cur = lastRowY + 20;                       // just under the last divider
   const badgeY = cur; if (badge) cur += 36 + 10;
   const bestY = cur + 10; if (win && r.best) cur += 26;
   const btnY = cur + 12;
   const chh = btnY + bh + 20;
   const cy = Math.round((H - chh) / 2) - 8;
+  const tnow = performance.now();
   drawConfetti();
+  if (win) { ctx.save(); ctx.shadowColor = "rgba(8,126,122,0.35)"; ctx.shadowBlur = 30; ctx.shadowOffsetY = 8; }
   roundRect(cx, cy, cw, chh, 8, "#FBF8F1", null, true);
+  if (win) ctx.restore();
+  if (win) {
+    ctx.save(); ctx.beginPath(); ctx.roundRect(cx, cy, cw, chh, 8); ctx.clip();
+    // sticky-note specks pinned in the header corners
+    const specks = [[26, 30, "#FFE58A", -0.3], [48, 62, "#FFB7C5", 0.4], [cw - 30, 34, "#A8E6CF", 0.3], [cw - 56, 66, "#9FD3F5", -0.4]];
+    for (const [sx0, sy0, col, rot] of specks) { ctx.save(); ctx.translate(cx + sx0, cy + sy0); ctx.rotate(rot); ctx.fillStyle = col; ctx.fillRect(-7, -7, 14, 14); ctx.fillStyle = "rgba(0,0,0,0.08)"; ctx.fillRect(-7, -7, 14, 2); ctx.restore(); }
+    ctx.restore();
+  }
   modalBox = { w: cw, h: chh + 40 };
 
   ctx.textAlign = "center";
-  const titleSize = win ? 44 : loseTitleFontSize(cw - 70);
-  ctx.save(); ctx.textAlign = "center"; ctx.fillStyle = C.navyDark; ctx.font = `800 ${titleSize}px ${F_FUN}`; ctx.fillText(title, W / 2, cy + 58); ctx.restore();
+  let titleSize = win ? 40 : loseTitleFontSize(cw - 70);
+  ctx.save(); ctx.textAlign = "center"; ctx.font = `800 ${titleSize}px ${F_FUN}`;
+  if (win) {
+    const tw = ctx.measureText(title).width;
+    const room = (cw - tw) / 2;                      // free space either side of the title
+    if (room >= 74) {
+      // happy employee (the in-game win pose) hops beside the headline; trophy balances the other side
+      const hop = Math.abs(Math.sin(tnow / 260)) * 7;
+      ctx.fillStyle = "rgba(20,40,50,0.18)"; ctx.beginPath(); ctx.ellipse(W / 2 - tw / 2 - 40, cy + 84, 20 - hop * 0.4, 4, 0, 0, Math.PI * 2); ctx.fill();
+      Sprites.draw(ctx, "employee", "win", 0, 1, W / 2 - tw / 2 - 40, cy + 80 - hop, { sx: 1.3, sy: 1.3 });
+      drawSparkle(W / 2 + tw / 2 + 62, cy + 34, 7 + 2 * Math.sin(tnow / 170), 0.6 + 0.4 * Math.sin(tnow / 200), C.teal);
+      drawSparkle(W / 2 - tw / 2 - 66, cy + 30, 6 + 2 * Math.sin(tnow / 150 + 1), 0.6 + 0.4 * Math.sin(tnow / 190 + 1), C.teal);
+    }
+    ctx.fillStyle = C.tealMid; ctx.fillText(title, W / 2 + 3, cy + 61);   // block shadow
+  }
+  ctx.fillStyle = C.navyDark; ctx.fillText(title, W / 2, cy + 58); ctx.restore();
   if (win) {
     ctx.fillStyle = "#8B96A3"; ctx.font = `500 13px ${F_TEXT}`;
     ctx.fillText(r.winSubtitle || "Freedom tastes sweet.", W / 2, cy + 80);
@@ -7329,7 +7425,37 @@ function renderResultCard(win) {
   const score = (r.score ?? game.score ?? 0);
   ctx.textAlign = "center"; ctx.fillStyle = "#8B96A3"; ctx.font = `700 10px ${F_UI}`;
   ctx.fillText("ESCAPE SCORE", W / 2, cy + scoreY - 20);
-  ctx.fillStyle = win ? C.teal : C.navyDark; ctx.font = `800 38px ${F_UI}`;
+  if (win) {   // office-prop flourish in the same flat block style as the level decor: desk plant | label | coffee mug
+    const lblW = ctx.measureText("ESCAPE SCORE").width, base = Math.round(cy + scoreY - 18), off = Math.round(lblW / 2 + 34);
+    const shelf = (x) => {   // little desk-edge bar the prop sits on
+      ctx.fillStyle = "#D5DBDF"; ctx.fillRect(x - 16, base, 32, 2);
+      ctx.fillStyle = "#AEB8BF"; ctx.fillRect(x - 16, base + 2, 32, 1);
+    };
+    // left: desk plant (same shapes as drawDeskPlant, centred on the shelf)
+    const px = Math.round(W / 2 - off);
+    ctx.save(); ctx.translate(px, base); ctx.scale(1.3, 1.3); ctx.translate(-px, -base);
+    shelf(px);
+    drawDeskPlant(px, base);
+    ctx.restore();
+    // right: coffee mug with a wisp of steam
+    const mx = Math.round(W / 2 + off);
+    ctx.save(); ctx.translate(mx, base); ctx.scale(1.3, 1.3); ctx.translate(-mx, -base);
+    shelf(mx);
+    ctx.fillStyle = "#EDE7DB"; ctx.fillRect(mx - 5, base - 9, 10, 9);          // body
+    ctx.fillStyle = "#D6CDBC"; ctx.fillRect(mx + 2, base - 9, 3, 9);           // shaded side
+    ctx.fillStyle = "#EDE7DB"; ctx.fillRect(mx + 5, base - 7, 3, 2); ctx.fillRect(mx + 7, base - 7, 1, 5); ctx.fillRect(mx + 5, base - 3, 3, 1);   // handle
+    ctx.fillStyle = C.brown; ctx.fillRect(mx - 4, base - 9, 8, 1);             // coffee surface
+    ctx.fillStyle = C.teal; ctx.fillRect(mx - 5, base - 5, 10, 1);             // teal band, like the office mugs
+    const st = performance.now() / 420;
+    ctx.fillStyle = `rgba(150,160,170,${(0.35 + 0.25 * Math.sin(st)).toFixed(2)})`;
+    ctx.fillRect(mx - 2, base - 15 - Math.round(Math.sin(st) * 1), 1, 4);
+    ctx.fillStyle = `rgba(150,160,170,${(0.35 + 0.25 * Math.sin(st + 1.6)).toFixed(2)})`;
+    ctx.fillRect(mx + 1, base - 16 - Math.round(Math.sin(st + 1.6) * 1), 1, 4);
+    ctx.restore();
+  }
+  ctx.font = `800 38px ${F_UI}`;
+  if (win) { ctx.fillStyle = C.tealMid; ctx.fillText(score.toLocaleString("en-US"), W / 2 + 3, cy + scoreY + 17); }   // same block shadow as the title
+  ctx.fillStyle = C.navyDark;
   ctx.fillText(score.toLocaleString("en-US"), W / 2, cy + scoreY + 14);
   if (win && r.noMeetings) {
     ctx.fillStyle = "#1F9D6B"; ctx.font = `800 10px ${F_UI}`;
@@ -7338,31 +7464,80 @@ function renderResultCard(win) {
 
   // stat rows — label left, value right, each with a thin divider
   const rowX0 = cx + 36, rowX1 = cx + cw - 36;
+  const dotCols = [C.teal, C.gold, C.pinkMid, "#9FD3F5", C.tealMid, C.gold, C.pinkMid];
   rows.forEach(([label, value], i) => {
     const y = cy + rowsTop + i * rowGap;
+    if (win) {   // flat icon per stat instead of a plain dot
+      const kinds = { "Time out": "clock", "Coworkers dodged": "person", "Managers stunned": "star", "Files landed": "paper", "Close calls": "alert", "Office loot": "cup", "Meetings attended": "calendar" };
+      const kind = kinds[label];
+      if (kind) drawStatIcon(kind, rowX0 - 13, y - 5, dotCols[i % dotCols.length], String(value));
+      else { ctx.fillStyle = dotCols[i % dotCols.length]; ctx.beginPath(); ctx.arc(rowX0 - 14, y - 5, 4, 0, Math.PI * 2); ctx.fill(); }
+    }
     ctx.textAlign = "left"; ctx.fillStyle = "#3A4658"; ctx.font = `500 15px ${F_TEXT}`;
     ctx.fillText(label, rowX0, y);
-    ctx.textAlign = "right"; ctx.fillStyle = C.navyDark; ctx.font = `800 17px ${F_UI}`;
-    ctx.fillText(value, rowX1, y);
+    // values: lighter weight + manual tracking so the digits breathe (canvas letterSpacing isn't reliable everywhere)
+    ctx.fillStyle = C.navyDark; ctx.font = `600 17px ${F_UI}`; ctx.textAlign = "left";
+    {
+      const track = 0.8, chars = [...String(value)], ws = chars.map(c => ctx.measureText(c).width);
+      let vx = rowX1 - (ws.reduce((a, b) => a + b, 0) + track * (chars.length - 1));
+      chars.forEach((c, k) => { ctx.fillText(c, vx, y); vx += ws[k] + track; });
+    }
     ctx.strokeStyle = "rgba(38,52,70,0.12)"; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(rowX0, y + 14); ctx.lineTo(rowX1, y + 14); ctx.stroke();
   });
 
+  if (win) {   // faint warm desk-lamp glow pooled behind the badge + best line
+    ctx.save(); ctx.beginPath(); ctx.roundRect(cx, cy, cw, chh, 8); ctx.clip();
+    ctx.translate(W / 2, cy + badgeY + 30); ctx.scale(1, 0.34);
+    const lg = ctx.createRadialGradient(0, 0, 0, 0, 0, 200);
+    lg.addColorStop(0, "rgba(255,214,120,0.30)"); lg.addColorStop(1, "rgba(255,214,120,0)");
+    ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(0, 0, 200, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
   // earned-title pill, overlapping the last divider
   if (badge) {
     const [name] = badge;
-    ctx.font = `800 ${Math.round(12 * 1.2)}px ${F_UI}`;
-    const pillW = ctx.measureText(name).width + 36 * 1.2, pillH = 34;
-    const py = cy + badgeY;
-    roundRect(W / 2 - pillW / 2, py, pillW, pillH, pillH / 2, win ? C.teal : "#8B96A3", null, true);
-    ctx.textAlign = "center"; ctx.fillStyle = "#FFFFFF";
-    ctx.fillText(name, W / 2, py + 22);
+    ctx.font = `800 16px ${F_UI}`;
+    const pillW = Math.round(ctx.measureText(name).width + 40 + (win ? 44 : 0)), pillH = 36;
+    const py = cy + badgeY, pxx = Math.round(W / 2 - pillW / 2);
+    // same chunky pixel style as the CTAs: dark outline, base underneath, highlight strip
+    pixelButton(pxx, py, pillW, pillH, win ? C.teal : "#8B96A3", win ? "#0B8A84" : "#6C7A8A", false);
+    ctx.textAlign = "center"; ctx.fillStyle = "#FFFFFF"; ctx.font = `800 16px ${F_UI}`;
+    ctx.fillText(name, W / 2, py + pillH / 2 + 4);
+    if (win) { drawStar5(pxx + 22, py + pillH / 2 - 1, 8, C.tealSoft); drawStar5(pxx + pillW - 22, py + pillH / 2 - 1, 8, C.tealSoft); }
+    if (win) {   // desk props flanking the title pill: paper stack | pill | stapler (same flat style as the level decor)
+      const sb = Math.round(py + pillH - 5), sOff = Math.round(pillW / 2 + 38);
+      const onShelf = (x, fn) => {
+        ctx.save(); ctx.translate(x, sb); ctx.scale(1.3, 1.3); ctx.translate(-x, -sb);
+        ctx.fillStyle = "#D5DBDF"; ctx.fillRect(x - 16, sb, 32, 2);
+        ctx.fillStyle = "#AEB8BF"; ctx.fillRect(x - 16, sb + 2, 32, 1);
+        fn(x, sb); ctx.restore();
+      };
+      onShelf(Math.round(W / 2 - sOff), (x, b) => {   // paper stack with a teal sticky note on top
+        ctx.fillStyle = "#D6CDBC"; ctx.fillRect(x - 8, b - 4, 16, 4);
+        ctx.fillStyle = "#FAF6EC"; ctx.fillRect(x - 8, b - 6, 15, 2);
+        ctx.fillStyle = "#EDE7DB"; ctx.fillRect(x - 7, b - 9, 14, 3);
+        ctx.fillStyle = "#FAF6EC"; ctx.fillRect(x - 7, b - 11, 13, 2);
+        ctx.fillStyle = "rgba(120,112,96,0.55)"; ctx.fillRect(x - 5, b - 8, 8, 1);
+        ctx.fillStyle = C.gold; ctx.fillRect(x + 1, b - 14, 6, 5);                 // sticky note
+        ctx.fillStyle = "rgba(0,0,0,0.12)"; ctx.fillRect(x + 1, b - 14, 6, 1);
+      });
+      onShelf(Math.round(W / 2 + sOff), (x, b) => {   // stapler
+        ctx.fillStyle = "#334254"; ctx.fillRect(x - 8, b - 4, 16, 4);
+        ctx.fillStyle = C.navyDark; ctx.fillRect(x - 8, b - 1, 16, 1);
+        ctx.fillStyle = C.teal; ctx.fillRect(x - 7, b - 7, 13, 3);
+        ctx.fillStyle = C.tealDark; ctx.fillRect(x + 3, b - 7, 3, 3);
+        ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.fillRect(x - 6, b - 7, 9, 1);
+      });
+    }
   }
 
   if (win && r.best) {
     const b = r.best;
-    ctx.textAlign = "center"; ctx.fillStyle = b.newDaily ? "#D96A5A" : "#6C7A8A"; ctx.font = `800 ${Math.round(9 * 1.2)}px ${F_UI}`;
-    ctx.fillText(b.newAll ? "NEW ALL-TIME BEST!" : b.newDaily ? "NEW BEST TODAY!" : `TODAY'S BEST ${clockString(b.daily)}  ·  ALL-TIME ${clockString(b.all)}`, W / 2, cy + bestY + 6);
+    const bestTxt = `TODAY'S BEST ${clockString(b.daily)}  ·  ALL-TIME ${clockString(b.all)}`;
+    ctx.textAlign = "center"; ctx.font = `800 ${Math.round(9 * 1.2)}px ${F_UI}`;
+    ctx.fillStyle = "#6C7A8A"; ctx.fillText(bestTxt, W / 2, cy + bestY + 6);
   }
 
   // buttons: secondary (share) left, primary (play again) right — same order as the caught card
@@ -7372,13 +7547,38 @@ function renderResultCard(win) {
     { id: "again", x: bx0 + bw + gap, y: by, w: bw, h: bh },
   ];
   const copied = performance.now() - (game.copiedAt || -1e9) < 1600;
-  roundRect(bx0, by, bw, bh, 6 * 1.2, "#FFFFFF", "rgba(38,52,70,0.14)", true);
-  ctx.textAlign = "center"; ctx.font = `800 ${Math.round(13 * 1.2)}px ${F_UI}`;
+  // same chunky pixel buttons as the settings / pause modal
+  pixelButton(bx0, by, bw, bh, "#FFFFFF", "#D8DDE2", false);
+  ctx.textAlign = "center"; ctx.font = `800 ${touchUI ? 17 : 16}px ${F_UI}`;
   ctx.fillStyle = copied ? "#1F9D6B" : C.navyDark;
-  ctx.fillText(copied ? "✓ COPIED!" : "SHARE RESULT", bx0 + bw / 2, by + bh / 2 + 5);
-  roundRect(bx0 + bw + gap, by, bw, bh, 6 * 1.2, win ? C.teal : C.navyDark, null, true);
+  ctx.fillText(copied ? "✓ COPIED!" : "SHARE RESULT", bx0 + bw / 2, by + bh / 2 + 5.5);
+  pixelButton(bx0 + bw + gap, by, bw, bh, win ? C.teal : C.navyDark, win ? "#0B8A84" : "#0B1522", false);
   ctx.fillStyle = "#FFFFFF";
-  ctx.fillText("↻ PLAY AGAIN", bx0 + bw + gap + bw / 2, by + bh / 2 + 5);
+  ctx.fillText("↻ PLAY AGAIN", bx0 + bw + gap + bw / 2, by + bh / 2 + 5.5);
+
+  if (win) {
+    // elevator-door edge along the bottom of the card: two brushed-metal panels with a centre seam
+    ctx.save(); ctx.beginPath(); ctx.roundRect(cx, cy, cw, chh, 8); ctx.clip();
+    const eh = 7, ey = cy + chh - eh, mid = W / 2;
+    ctx.fillStyle = "#BDC7CE"; ctx.fillRect(cx, ey, cw, eh);
+    ctx.fillStyle = "#E4E9ED"; ctx.fillRect(cx, ey, cw, 2);                       // top highlight
+    ctx.fillStyle = "#AEB8BF"; ctx.fillRect(cx, ey + eh - 1, cw, 1);
+    ctx.fillStyle = "#8C98A2"; ctx.fillRect(mid - 1, ey, 2, eh);                  // seam
+    ctx.fillStyle = "rgba(255,255,255,0.45)"; ctx.fillRect(mid - 28, ey + 2, 1, eh - 3); ctx.fillRect(mid + 27, ey + 2, 1, eh - 3);
+    ctx.fillStyle = C.teal; ctx.fillRect(mid - 4, ey - 0, 3, 2); ctx.fillRect(mid + 1, ey - 0, 3, 2);   // call-button lights
+    ctx.restore();
+
+    // sticky note pinned over the bottom-left corner
+    ctx.save();
+    ctx.translate(cx - 8, cy + chh - 56); ctx.rotate(-0.1);
+    ctx.fillStyle = "rgba(27,38,52,0.16)"; ctx.fillRect(-28, -22, 62, 52);        // soft shadow
+    ctx.fillStyle = "#FFE58A"; ctx.fillRect(-30, -26, 62, 52);
+    ctx.fillStyle = "#F2D46A"; ctx.fillRect(-30, 20, 62, 6);                      // curl shade
+    ctx.fillStyle = "rgba(220,235,235,0.7)"; ctx.fillRect(-12, -31, 26, 9);       // tape
+    ctx.fillStyle = C.navyDark; ctx.textAlign = "center"; ctx.font = `700 10px ${F_TEXT}`;
+    ctx.fillText("See you", 1, -6); ctx.fillText("tomorrow.", 1, 7);
+    ctx.restore();
+  }
 
   ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.font = `600 ${Math.round(9 * 1.2)}px ${F_UI}`;
   ctx.fillText(touchUI ? "TAP TO CHOOSE" : "C · COPY RESULT      SPACE · PLAY AGAIN", W / 2, cy + chh + 24);
