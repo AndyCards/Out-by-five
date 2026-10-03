@@ -7534,14 +7534,14 @@ function renderCaught() {
       { id: "restart", x: bx0, y: by, w: bw, h: bh },
       { id: "continue", x: bx0 + bw + gap, y: by, w: bw, h: bh },
     ];
-    // secondary: pixel-style white button with purple border
-    const liftR = pixelButton(bx0, by, bw, bh, "#FFFFFF", "#D8DDE2", false, purple);
+    // secondary: rounded rect white button
+    ctx.fillStyle = "#FFFFFF"; ctx.beginPath(); ctx.roundRect(bx0, by, bw, bh, 6); ctx.fill();
     ctx.textAlign = "center"; ctx.fillStyle = purple; ctx.font = `800 ${Math.round(13 * 1.2)}px ${F_UI}`;
-    ctx.fillText("↻ RESTART SHIFT", bx0 + bw / 2, by + bh / 2 + 4.5 - liftR);
-    // primary: pixel-style purple button with darker purple border
-    const liftC = pixelButton(bx0 + bw + gap, by, bw, bh, purple, inv.kind === "director" ? "#2E2F5B" : "#3C3EA0", false, inv.kind === "director" ? "#2E2F5B" : "#3C3EA0");
+    ctx.fillText("↻ RESTART SHIFT", bx0 + bw / 2, by + bh / 2 + 4.5);
+    // primary: rounded rect purple button
+    ctx.fillStyle = purple; ctx.beginPath(); ctx.roundRect(bx0 + bw + gap, by, bw, bh, 6); ctx.fill();
     ctx.fillStyle = "#FFFFFF"; ctx.font = `800 ${Math.round(13 * 1.2)}px ${F_UI}`; ctx.textAlign = "center";
-    ctx.fillText("▶ CONTINUE", bx0 + bw + gap + bw / 2, by + bh / 2 + 4.5 - liftC);
+    ctx.fillText("▶ CONTINUE", bx0 + bw + gap + bw / 2, by + bh / 2 + 4.5);
     ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.font = `600 ${Math.round(9 * 1.2)}px ${F_UI}`;
     ctx.fillText(touchUI ? "TAP TO CHOOSE" : "SPACE · CONTINUE      R · RESTART", W / 2, cy + chh + 20 * 1.2);
   }
