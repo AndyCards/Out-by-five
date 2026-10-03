@@ -7322,7 +7322,7 @@ function renderMenu() {
   ctx.save(); ctx.font = `800 28px ${F_FUN}`;
   const titleStr = isPause ? "PAUSED" : "SETTINGS";
   {
-    const track = 3, chars = [...titleStr], ws = chars.map(c => ctx.measureText(c).width);
+    const track = 0, chars = [...titleStr], ws = chars.map(c => ctx.measureText(c).width);
     const tot = ws.reduce((a, b) => a + b, 0) + track * (chars.length - 1);
     ctx.textAlign = "left";
     let x = W / 2 - tot / 2;
