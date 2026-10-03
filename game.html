@@ -3681,6 +3681,10 @@ function drawStatIcon(kind, x, y, col, timeStr) {
     ctx.fillStyle = col; ctx.fillRect(x - 5, y - 0.5, 9, 1.6);
     ctx.fillStyle = "#EDE7DB"; ctx.fillRect(x + 4, y - 1.5, 3, 1.5); ctx.fillRect(x + 6, y - 1.5, 1.5, 5); ctx.fillRect(x + 4, y + 2, 3, 1.5);
     ctx.fillStyle = "rgba(150,160,170,0.7)"; ctx.fillRect(x - 3, y - 7, 1, 3); ctx.fillRect(x, y - 7.5, 1, 3.5);
+  } else if (kind === "flag") {
+    ctx.fillStyle = ink; ctx.fillRect(x - 4, y - 7, 1.6, 14);
+    ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x - 2.4, y - 7); ctx.lineTo(x + 6, y - 3.5); ctx.lineTo(x - 2.4, y); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(38,52,70,0.3)"; ctx.fillRect(x - 6, y + 6, 6, 1.5);
   } else if (kind === "calendar") {
     ctx.fillStyle = "#FFFFFF"; ctx.fillRect(x - 6, y - 5.5, 12, 12);
     ctx.fillStyle = col; ctx.fillRect(x - 6, y - 5.5, 12, 4);
@@ -7411,7 +7415,7 @@ function renderResultCard(win) {
       drawSparkle(W / 2 - tw / 2 - 66, cy + 30, 6 + 2 * Math.sin(tnow / 150 + 1), 0.6 + 0.4 * Math.sin(tnow / 190 + 1), C.teal);
     }
     ctx.fillStyle = C.tealMid; ctx.fillText(title, W / 2 + 3, cy + 61);   // block shadow
-  }
+  } else { ctx.fillStyle = "#B4BEC8"; ctx.fillText(title, W / 2 + 3, cy + 61); }   // muted slate shadow
   ctx.fillStyle = C.navyDark; ctx.fillText(title, W / 2, cy + 58); ctx.restore();
   if (win) {
     ctx.fillStyle = "#8B96A3"; ctx.font = `500 13px ${F_TEXT}`;
@@ -7425,8 +7429,13 @@ function renderResultCard(win) {
   const score = (r.score ?? game.score ?? 0);
   ctx.textAlign = "center"; ctx.fillStyle = "#8B96A3"; ctx.font = `700 10px ${F_UI}`;
   ctx.fillText("ESCAPE SCORE", W / 2, cy + scoreY - 20);
-  if (win) {   // office-prop flourish in the same flat block style as the level decor: desk plant | label | coffee mug
-    const lblW = ctx.measureText("ESCAPE SCORE").width, base = Math.round(cy + scoreY - 18), off = Math.round(lblW / 2 + 34);
+  {   // office-prop flourish in the same flat block style as the level decor: desk plant | label | coffee mug
+    // props stand on a shelf at the number's baseline and hug the number symmetrically (spacing scales with the digits' width)
+    const lblW = ctx.measureText("ESCAPE SCORE").width;
+    ctx.font = `800 38px ${F_UI}`;
+    const numW2 = ctx.measureText(score.toLocaleString("en-US")).width;
+    ctx.font = `700 10px ${F_UI}`;
+    const base = Math.round(cy + scoreY + 19), off = Math.round(Math.max(lblW, numW2) / 2 + 46);
     const shelf = (x) => {   // little desk-edge bar the prop sits on
       ctx.fillStyle = "#D5DBDF"; ctx.fillRect(x - 16, base, 32, 2);
       ctx.fillStyle = "#AEB8BF"; ctx.fillRect(x - 16, base + 2, 32, 1);
@@ -7445,7 +7454,7 @@ function renderResultCard(win) {
     ctx.fillStyle = "#D6CDBC"; ctx.fillRect(mx + 2, base - 9, 3, 9);           // shaded side
     ctx.fillStyle = "#EDE7DB"; ctx.fillRect(mx + 5, base - 7, 3, 2); ctx.fillRect(mx + 7, base - 7, 1, 5); ctx.fillRect(mx + 5, base - 3, 3, 1);   // handle
     ctx.fillStyle = C.brown; ctx.fillRect(mx - 4, base - 9, 8, 1);             // coffee surface
-    ctx.fillStyle = C.teal; ctx.fillRect(mx - 5, base - 5, 10, 1);             // teal band, like the office mugs
+    ctx.fillStyle = win ? C.teal : "#8B96A3"; ctx.fillRect(mx - 5, base - 5, 10, 1);   // band, like the office mugs
     const st = performance.now() / 420;
     ctx.fillStyle = `rgba(150,160,170,${(0.35 + 0.25 * Math.sin(st)).toFixed(2)})`;
     ctx.fillRect(mx - 2, base - 15 - Math.round(Math.sin(st) * 1), 1, 4);
@@ -7454,7 +7463,7 @@ function renderResultCard(win) {
     ctx.restore();
   }
   ctx.font = `800 38px ${F_UI}`;
-  if (win) { ctx.fillStyle = C.tealMid; ctx.fillText(score.toLocaleString("en-US"), W / 2 + 3, cy + scoreY + 17); }   // same block shadow as the title
+  ctx.fillStyle = win ? C.tealMid : "#B4BEC8"; ctx.fillText(score.toLocaleString("en-US"), W / 2 + 3, cy + scoreY + 17);   // same block shadow as the title
   ctx.fillStyle = C.navyDark;
   ctx.fillText(score.toLocaleString("en-US"), W / 2, cy + scoreY + 14);
   if (win && r.noMeetings) {
@@ -7467,11 +7476,12 @@ function renderResultCard(win) {
   const dotCols = [C.teal, C.gold, C.pinkMid, "#9FD3F5", C.tealMid, C.gold, C.pinkMid];
   rows.forEach(([label, value], i) => {
     const y = cy + rowsTop + i * rowGap;
-    if (win) {   // flat icon per stat instead of a plain dot
-      const kinds = { "Time out": "clock", "Coworkers dodged": "person", "Managers stunned": "star", "Files landed": "paper", "Close calls": "alert", "Office loot": "cup", "Meetings attended": "calendar" };
-      const kind = kinds[label];
-      if (kind) drawStatIcon(kind, rowX0 - 13, y - 5, dotCols[i % dotCols.length], String(value));
-      else { ctx.fillStyle = dotCols[i % dotCols.length]; ctx.beginPath(); ctx.arc(rowX0 - 14, y - 5, 4, 0, Math.PI * 2); ctx.fill(); }
+    {   // flat icon per stat (muted slate palette on the lose card)
+      const kinds = { "Time out": "clock", "Coworkers dodged": "person", "Managers stunned": "star", "Files landed": "paper", "Close calls": "alert", "Office loot": "cup", "Meetings attended": "calendar", "Furthest zone": "flag" };
+      const loseCols = ["#6F8196", "#8B96A3", "#B98A98", "#8DA7BD", "#C2A25C"];
+      const kind = kinds[label], icol = win ? dotCols[i % dotCols.length] : loseCols[i % loseCols.length];
+      if (kind) drawStatIcon(kind, rowX0 - 13, y - 5, icol, String(value));
+      else { ctx.fillStyle = icol; ctx.beginPath(); ctx.arc(rowX0 - 14, y - 5, 4, 0, Math.PI * 2); ctx.fill(); }
     }
     ctx.textAlign = "left"; ctx.fillStyle = "#3A4658"; ctx.font = `500 15px ${F_TEXT}`;
     ctx.fillText(label, rowX0, y);
@@ -7506,8 +7516,8 @@ function renderResultCard(win) {
     ctx.textAlign = "center"; ctx.fillStyle = "#FFFFFF"; ctx.font = `800 16px ${F_UI}`;
     ctx.fillText(name, W / 2, py + pillH / 2 + 4);
     if (win) { drawStar5(pxx + 22, py + pillH / 2 - 1, 8, C.tealSoft); drawStar5(pxx + pillW - 22, py + pillH / 2 - 1, 8, C.tealSoft); }
-    if (win) {   // desk props flanking the title pill: paper stack | pill | stapler (same flat style as the level decor)
-      const sb = Math.round(py + pillH - 5), sOff = Math.round(pillW / 2 + 38);
+    {   // desk props flanking the title pill: paper stack | pill | stapler (win) or departing cab (lose) — same flat style as the level decor
+      const sb = Math.round(py + pillH + 2), sOff = Math.round(pillW / 2 + 42);   // shelf level with the pill's base
       const onShelf = (x, fn) => {
         ctx.save(); ctx.translate(x, sb); ctx.scale(1.3, 1.3); ctx.translate(-x, -sb);
         ctx.fillStyle = "#D5DBDF"; ctx.fillRect(x - 16, sb, 32, 2);
@@ -7523,7 +7533,16 @@ function renderResultCard(win) {
         ctx.fillStyle = C.gold; ctx.fillRect(x + 1, b - 14, 6, 5);                 // sticky note
         ctx.fillStyle = "rgba(0,0,0,0.12)"; ctx.fillRect(x + 1, b - 14, 6, 1);
       });
-      onShelf(Math.round(W / 2 + sOff), (x, b) => {   // stapler
+      if (!win) onShelf(Math.round(W / 2 + sOff), (x, b) => {   // the cab that just left: yellow taxi + speed lines
+        ctx.fillStyle = "#F0B93A"; ctx.fillRect(x - 9, b - 6, 18, 5);               // body
+        ctx.fillStyle = "#D99A22"; ctx.fillRect(x - 9, b - 2, 18, 1);               // sill shade
+        ctx.fillStyle = "#F0B93A"; ctx.fillRect(x - 5, b - 10, 10, 4);              // cabin
+        ctx.fillStyle = "#BFE0EE"; ctx.fillRect(x - 4, b - 9, 3.5, 3); ctx.fillRect(x + 0.5, b - 9, 3.5, 3);   // windows
+        ctx.fillStyle = C.navyDark; ctx.fillRect(x - 2, b - 12, 4, 2);              // roof sign
+        ctx.beginPath(); ctx.arc(x - 5, b - 1, 2, 0, Math.PI * 2); ctx.arc(x + 5, b - 1, 2, 0, Math.PI * 2); ctx.fill();   // wheels
+        ctx.fillStyle = "rgba(139,150,163,0.65)"; ctx.fillRect(x - 17, b - 7, 5, 1); ctx.fillRect(x - 15, b - 4, 4, 1);   // speed lines (trailing behind)
+      });
+      if (win) onShelf(Math.round(W / 2 + sOff), (x, b) => {   // stapler
         ctx.fillStyle = "#334254"; ctx.fillRect(x - 8, b - 4, 16, 4);
         ctx.fillStyle = C.navyDark; ctx.fillRect(x - 8, b - 1, 16, 1);
         ctx.fillStyle = C.teal; ctx.fillRect(x - 7, b - 7, 13, 3);
@@ -7556,8 +7575,8 @@ function renderResultCard(win) {
   ctx.fillStyle = "#FFFFFF";
   ctx.fillText("↻ PLAY AGAIN", bx0 + bw + gap + bw / 2, by + bh / 2 + 5.5);
 
-  if (win) {
-    // elevator-door edge along the bottom of the card: two brushed-metal panels with a centre seam
+  {
+    // elevator-door edge along the bottom of the card: two brushed-metal panels with a centre seam (closed doors on the lose card)
     ctx.save(); ctx.beginPath(); ctx.roundRect(cx, cy, cw, chh, 8); ctx.clip();
     const eh = 7, ey = cy + chh - eh, mid = W / 2;
     ctx.fillStyle = "#BDC7CE"; ctx.fillRect(cx, ey, cw, eh);
@@ -7565,7 +7584,7 @@ function renderResultCard(win) {
     ctx.fillStyle = "#AEB8BF"; ctx.fillRect(cx, ey + eh - 1, cw, 1);
     ctx.fillStyle = "#8C98A2"; ctx.fillRect(mid - 1, ey, 2, eh);                  // seam
     ctx.fillStyle = "rgba(255,255,255,0.45)"; ctx.fillRect(mid - 28, ey + 2, 1, eh - 3); ctx.fillRect(mid + 27, ey + 2, 1, eh - 3);
-    ctx.fillStyle = C.teal; ctx.fillRect(mid - 4, ey - 0, 3, 2); ctx.fillRect(mid + 1, ey - 0, 3, 2);   // call-button lights
+    ctx.fillStyle = win ? C.teal : "#C9534F"; ctx.fillRect(mid - 4, ey - 0, 3, 2); ctx.fillRect(mid + 1, ey - 0, 3, 2);   // call-button lights (red = out of service)
     ctx.restore();
 
     // sticky note pinned over the bottom-left corner
@@ -7575,8 +7594,8 @@ function renderResultCard(win) {
     ctx.fillStyle = "#FFE58A"; ctx.fillRect(-30, -26, 62, 52);
     ctx.fillStyle = "#F2D46A"; ctx.fillRect(-30, 20, 62, 6);                      // curl shade
     ctx.fillStyle = "rgba(220,235,235,0.7)"; ctx.fillRect(-12, -31, 26, 9);       // tape
-    ctx.fillStyle = C.navyDark; ctx.textAlign = "center"; ctx.font = `700 10px ${F_TEXT}`;
-    ctx.fillText("See you", 1, -6); ctx.fillText("tomorrow.", 1, 7);
+    ctx.fillStyle = C.navyDark; ctx.textAlign = "center"; ctx.font = `700 ${win ? 10 : 9}px ${F_TEXT}`;
+    ctx.fillText(win ? "See you" : "Better luck", 1, -6); ctx.fillText("tomorrow.", 1, 7);
     ctx.restore();
   }
 
