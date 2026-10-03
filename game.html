@@ -904,6 +904,7 @@ function fitHudCanvas() {
   hudView.h = Math.max(200, (availH - ins.t - ins.b) / scale);
 }
 
+let hdSupersample = 1;     // factor actually in use
 function fitCanvasResolution() {
   let dpr = Math.min(window.devicePixelRatio || 1, 2);
   const availW = window.innerWidth, availH = window.innerHeight;
@@ -920,10 +921,29 @@ function fitCanvasResolution() {
   wrapEl.classList.toggle("cover", cover);
   fitHudCanvas();
 
-  // keep the backing store sane on big tablets when the cover canvas overshoots the screen
-  const maxPx = 2.6e6;   // phones (~1.6M px) unaffected; tablets render ~1.5x instead of 2x
-  if (cssW * cssH * dpr * dpr > maxPx) dpr = Math.max(1, Math.sqrt(maxPx / (cssW * cssH)));
-  const bw = Math.round(cssW * dpr), bh = Math.round(cssH * dpr);
+  // Touch/cover mode: keep the backing store sane on big tablets when the cover canvas overshoots the screen.
+  // Desktop ("contain") is deliberately exempt — capping there would render BELOW the screen's real
+  // resolution on retina / 4K monitors and the browser would blow it back up (soft, jagged edges).
+  if (cover) {
+    const maxPx = 2.6e6;   // phones (~1.6M px) unaffected; tablets render ~1.5x instead of 2x
+    if (cssW * cssH * dpr * dpr > maxPx) dpr = Math.max(1, Math.sqrt(maxPx / (cssW * cssH)));
+  }
+  // Ultra-HD supersampling (desktop mouse/keyboard only): ALWAYS render at the highest quality the
+  // browser can hold — 2x the screen's device pixels, smoothed down by the browser (an exact 2:1 box
+  // filter, so edges of pixel art, rounded cards and text come out cleanly antialiased).
+  // The only limit is the canvas size every browser accepts (Safari: ~16.7M px). Screens already dense
+  // enough to hit that (4K, retina) render at their full native resolution instead.
+  const coarse = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+  let ss = 1;
+  if (!cover && !coarse) {
+    dpr = Math.min(window.devicePixelRatio || 1, 3);   // desktop: honour true device density (cap 2 is for touch)
+    const devW = Math.round(cssW * dpr), devH = Math.round(cssH * dpr);
+    const MAX_AREA = 16.7e6, MAX_SIDE = 16384;
+    if (devW * 2 <= MAX_SIDE && devH * 2 <= MAX_SIDE && devW * devH * 4 <= MAX_AREA) ss = 2;
+  }
+  hdSupersample = ss;
+  canvas.style.imageRendering = ss > 1 ? "auto" : "";   // smooth downscale only when supersampled; otherwise keep the crisp pixelated default
+  const bw = Math.round(cssW * dpr * ss), bh = Math.round(cssH * dpr * ss);
   if (canvas.width === bw && canvas.height === bh) return;
   canvas.width = bw;
   canvas.height = bh;
@@ -1429,8 +1449,9 @@ const Sound = (() => {
     musicLoadPending = false;
   }
 
-  function startMusic() {
+  function startMusic(force) {
     if (!ac) return;
+    if (!force && musicPlaying && musicSrc) return;  // already playing — don't restart from the top
     musicPlaying = true;
     if (musicSrc) { try { musicSrc.stop(); } catch(e) {} musicSrc = null; }
     if (!musicLoaded) { loadMusicBuf().then(() => { if (musicPlaying) _playMusicBuf(); }); return; }
