@@ -1,0 +1,15 @@
+# Dev / test scripts
+*_shot.js
+*_check.js
+*_sizes.js
+
+# Screenshot output directories
+res/
+elev/
+
+# Snapshot backups
+game.before-*.html
+
+# Misc
+node_modules/
+elev_shot2.js
