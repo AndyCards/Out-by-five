@@ -7647,7 +7647,7 @@ function renderResultCard(win) {
     ["Files landed", String(stats.fileHits)],
     ["Office loot", `${stats.loot || 0} / ${LOOT_TOTAL}`],
   ];
-  const title = win ? "You've Made It!" : (r.loseMsg || LOSE_MESSAGES[0]);
+  const title = win ? "YOU MADE IT!" : (r.loseMsg || LOSE_MESSAGES[0]);
   const badge = (r.titles && r.titles[0]) || null;
 
   // ── Section heights ──────────────────────────────────────────────
@@ -7790,8 +7790,8 @@ function renderResultCard(win) {
     ctx.font = `800 16px ${F_UI}`;
     const pillW = Math.round(ctx.measureText(name).width + 40 + (win ? 44 : 0)), pillH = 36;
     const py = cy + badgeTopY, pxx = Math.round(W / 2 - pillW / 2);
-    // same chunky pixel style as the CTAs: dark outline, base underneath, highlight strip
-    pixelButton(pxx, py, pillW, pillH, win ? C.teal : "#8B96A3", win ? "#0B8A84" : "#6C7A8A", false);
+    // same chunky pixel style as the CTAs, but a deeper teal shade so it reads as distinct from the primary CTA
+    pixelButton(pxx, py, pillW, pillH, win ? C.tealDark : "#8B96A3", win ? "#065E5B" : "#6C7A8A", false);
     ctx.textAlign = "center"; ctx.fillStyle = "#FFFFFF"; ctx.font = `800 16px ${F_UI}`;
     ctx.fillText(name, W / 2, py + pillH / 2 + 4);
     if (win) { drawStar5(pxx + 22, py + pillH / 2 - 1, 8, C.tealSoft); drawStar5(pxx + pillW - 22, py + pillH / 2 - 1, 8, C.tealSoft); }
