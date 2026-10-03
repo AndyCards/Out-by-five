@@ -7257,88 +7257,124 @@ function pixelToggle(x, y, on) {
 
 function renderMenu() {
   ctx.save();
+  // dark scrim — same treatment as caught/result modals
   ctx.fillStyle = "rgba(15,26,38,0.72)"; ctx.fillRect(0, 0, W, H);
+
   const items = menuItems();
   const hasBottom = items.some(it => it.id === "restart");
-  // Touch gets roomier rows / buttons and a card sized to its content (no dead space, no keyboard hint).
-  const T = touchUI, rowH = T ? 52 : 42, btnH = T ? 48 : 38;
+  const isPause = menu.from !== "TITLE";
+  const T = touchUI;
+  const rowH = T ? 50 : 40;
+  const btnH = T ? 46 : 40;
   const nToggle = items.filter(t => t.value !== undefined).length;
-  const backH = menu.from === "TITLE" ? (T ? 64 : 64) : 0;
-  const pw = Math.min(T ? 500 : 400, W - 32);
-  const ph = T ? 96 + backH + 4 + nToggle * rowH + 4 + 22 + (hasBottom ? btnH : 0) + 28
-             : Math.min(hasBottom ? 392 : 340, H - 20);
+  const pw = Math.min(T ? 480 : 400, W - 32);
+  const headerH = 46;   // colored header band, matches caught modal
+  const titleAreaH = 62; // title + subtitle below header
+  const toggleH = nToggle * rowH + 8;
+  const bottomH = hasBottom ? (btnH + 20) : 0;
+  const topBtnH = isPause ? 0 : (T ? 64 : 60);  // TITLE-mode "Back to game" button
+  const ph = Math.min(headerH + titleAreaH + topBtnH + toggleH + 20 + bottomH + 24, H - 24);
   const px = Math.round((W - pw) / 2), py = Math.round((H - ph) / 2);
-  roundRect(px, py, pw, ph, 8, "#FBF8F1", null, true);
+
+  // white card
+  roundRect(px, py, pw, ph, 8, "#FFFFFF", null, true);
   modalBox = { w: pw, h: ph };
 
-  // title in the same pixel lettering as CLOCKED OUT / SHIFT OVER
-  const title = menu.from === "TITLE" ? "SETTINGS" : "PAUSED";
-  ctx.save(); ctx.textAlign = "center"; ctx.fillStyle = C.navyDark; ctx.font = `800 38px ${F_FUN}`;
-  {  // manual tracking (canvas letterSpacing isn't reliable on every browser)
-    const track = 3, chars = [...title], ws = chars.map(c => ctx.measureText(c).width);
+  // ── header band (teal for PAUSED, navy for SETTINGS) ─────────────────────
+  const bandCol = isPause ? C.teal : C.navyDark;
+  ctx.save(); ctx.beginPath(); ctx.rect(px, py, pw, headerH); ctx.clip();
+  roundRect(px, py, pw, headerH + 8, 8, bandCol);
+  ctx.restore();
+
+  // header icon + label
+  ctx.fillStyle = "#FFFFFF"; ctx.font = `800 11px ${F_UI}`; ctx.textAlign = "left";
+  if (isPause) {
+    // clock icon
+    const ic = px + 22, iy = py + 23;
+    ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(ic, iy, 8, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ic, iy - 5); ctx.lineTo(ic, iy); ctx.lineTo(ic + 4, iy + 2); ctx.stroke();
+    ctx.fillText("PAUSED · CLOCK STOPPED", px + 36, py + 27);
+  } else {
+    // gear icon (simple pixel rect)
+    const ic = px + 22, iy = py + 23;
+    ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.fillRect(ic - 7, iy - 7, 14, 14);
+    ctx.fillStyle = bandCol; ctx.fillRect(ic - 4, iy - 4, 8, 8);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillText("SETTINGS", px + 36, py + 27);
+  }
+
+  // ── title + subtitle ──────────────────────────────────────────────────────
+  const titleY = py + headerH + 40;
+  ctx.save(); ctx.textAlign = "center"; ctx.fillStyle = C.navyDark; ctx.font = `800 28px ${F_FUN}`;
+  const titleStr = isPause ? "PAUSED" : "SETTINGS";
+  {
+    const track = 3, chars = [...titleStr], ws = chars.map(c => ctx.measureText(c).width);
     const tot = ws.reduce((a, b) => a + b, 0) + track * (chars.length - 1);
     ctx.textAlign = "left";
     let x = W / 2 - tot / 2;
-    chars.forEach((c, i) => { ctx.fillText(c, x, py + 58); x += ws[i] + track; });
+    chars.forEach((c, i) => { ctx.fillText(c, x, titleY); x += ws[i] + track; });
   }
   ctx.restore();
-  ctx.textAlign = "center"; ctx.fillStyle = "#6C7A8A"; ctx.font = `500 13px ${F_TEXT}`;
-  ctx.font = `500 ${T ? 15 : 13}px ${F_TEXT}`;
-  ctx.fillText(menu.from === "TITLE" ? "Tune the office to your liking." : "The clock is stopped. Nobody saw anything.", W / 2, py + (T ? 80 : 76));
+  ctx.textAlign = "center"; ctx.fillStyle = "#8B96A3"; ctx.font = `500 ${T ? 14 : 12}px ${F_TEXT}`;
+  ctx.fillText(isPause ? "The clock is stopped. Nobody saw anything." : "Tune the office to your liking.", W / 2, titleY + 18);
 
+  // ── toggle rows ───────────────────────────────────────────────────────────
   menu.rects = [];
-  const inX = px + (T ? 32 : 36), inW = pw - (T ? 64 : 72);
-  let y = py + 96;
-  // TITLE-mode "Back" is the only case with a standalone top primary button;
-  // in-game PAUSED has just the two bottom CTAs (Start Over + green Resume).
-  const topResumeIdx = menu.from === "TITLE" ? items.findIndex(it => it.id === "resume") : -1;
+  const inX = px + (T ? 28 : 28), inW = pw - (T ? 56 : 56);
+  let y = py + headerH + titleAreaH + topBtnH;
+
+  // TITLE-mode back-to-game button
+  const topResumeIdx = !isPause ? items.findIndex(it => it.id === "resume") : -1;
   if (topResumeIdx >= 0) {
     const it = items[topResumeIdx], sel = topResumeIdx === menu.idx;
-    const r = { x: inX, y, w: inW, h: T ? 50 : 46 };
+    const r = { x: inX, y, w: inW, h: T ? 46 : 42 };
     menu.rects[topResumeIdx] = r;
     const lift = pixelButton(r.x, r.y, r.w, r.h, C.teal, "#0B8A84", sel);
-    ctx.textAlign = "center"; ctx.fillStyle = "#FFFFFF"; ctx.font = `900 15px ${F_UI}`;
-    ctx.fillText("◀ " + it.label.toUpperCase(), r.x + r.w / 2, r.y + 27 - lift);
-    if (sel) pixelCursor(r.x - 18, r.y + 20);
-    y += 64;
+    ctx.textAlign = "center"; ctx.fillStyle = "#FFFFFF"; ctx.font = `800 13px ${F_UI}`;
+    ctx.fillText("◀ " + it.label.toUpperCase(), r.x + r.w / 2, r.y + r.h / 2 + 4.5 - lift);
+    if (sel) pixelCursor(r.x - 18, r.y + r.h / 2 - 2);
+    y += r.h + 16;
   }
-  // settings panel behind the toggles
-  const toggleCount = items.filter(t => t.value !== undefined).length;
-  roundRect(inX, y, inW, toggleCount * rowH + 8, 6, "#FFFFFF", "rgba(38,52,70,0.14)");
+
+  // white inset panel for toggles
+  roundRect(inX, y, inW, nToggle * rowH + 8, 6, "#F7F9FA", "rgba(38,52,70,0.12)");
   y += 4;
   items.forEach((it, i) => {
     const sel = i === menu.idx;
-    if (i === topResumeIdx) return;   // already drawn above
+    if (i === topResumeIdx) return;
     if (it.value !== undefined) {
       const r = { x: inX, y, w: inW, h: rowH };
       menu.rects[i] = r;
       const mid = rowH / 2;
       if (sel) { ctx.fillStyle = "rgba(20,184,176,0.10)"; ctx.fillRect(r.x + 2, r.y + 1, r.w - 4, r.h - 2); pixelCursor(r.x - 18, r.y + mid); }
       drawItem(it.id, r.x + 24, r.y + mid, 2, !it.value);
-      ctx.textAlign = "left"; ctx.fillStyle = C.navyDark; ctx.font = `800 ${T ? 15 : 12}px ${F_UI}`;
+      ctx.textAlign = "left"; ctx.fillStyle = C.navyDark; ctx.font = `800 ${T ? 14 : 12}px ${F_UI}`;
       ctx.fillText(it.label.toUpperCase(), r.x + 46, r.y + (it.note ? mid - 2 : mid + (T ? 5 : 4)));
       if (it.note) { ctx.fillStyle = "#8FA0A8"; ctx.font = `500 ${T ? 12 : 10}px ${F_TEXT}`; ctx.fillText(it.note, r.x + 46, r.y + mid + 12); }
       pixelToggle(r.x + r.w - 66, r.y + mid - 11, it.value);
-      const last = items[i + 1] && items[i + 1].value === undefined || !items[i + 1];
+      const last = !items[i + 1] || items[i + 1].value === undefined;
       if (!last) { ctx.fillStyle = "rgba(38,52,70,0.10)"; ctx.fillRect(r.x + 14, r.y + r.h - 1, r.w - 28, 1); }
       y += rowH;
-      if (last) y += 20;
+      if (last) y += 16;
     } else {
-      // bottom row, in-game pause only: Start Over (left, secondary) | Resume (right, primary green)
+      // bottom CTA row: Start Over (secondary) | Resume (teal primary)
       const idxInRow = it.id === "restart" ? 0 : 1;
       const bw = (inW - 12) / 2;
       const r = { x: inX + idxInRow * (bw + 12), y, w: bw, h: btnH };
       menu.rects[i] = r;
       const isResume = it.id === "resume";
-      const lift = pixelButton(r.x, r.y, r.w, r.h, isResume ? C.teal : (sel ? "#E3FAF7" : "#FFFFFF"), isResume ? "#0B8A84" : "#D8DDE2", sel);
-      ctx.textAlign = "center"; ctx.fillStyle = isResume ? "#FFFFFF" : C.navyDark; ctx.font = `800 ${T ? 14 : 11}px ${F_UI}`;
+      const lift = pixelButton(r.x, r.y, r.w, r.h, isResume ? C.teal : "#FFFFFF", isResume ? "#0B8A84" : "#D8DDE2", sel);
+      ctx.textAlign = "center"; ctx.fillStyle = isResume ? "#FFFFFF" : C.navyDark; ctx.font = `800 ${T ? 13 : 11}px ${F_UI}`;
       ctx.fillText(isResume ? "▶ RESUME" : "↻ START OVER", r.x + r.w / 2, r.y + btnH / 2 + (T ? 5 : 4.5) - lift);
       if (sel) pixelCursor(idxInRow ? r.x + r.w + 6 : r.x - 18, r.y + 18);
     }
   });
+
+  // keyboard hint (desktop only)
   if (!T) {
-    ctx.textAlign = "center"; ctx.fillStyle = "#8FA0A8"; ctx.font = `700 8px ${F_UI}`;
-    ctx.fillText("↑ ↓ CHOOSE  ·  SPACE SELECT  ·  ESC CLOSE", W / 2, py + ph - 16);
+    ctx.textAlign = "center"; ctx.fillStyle = "#A0ADB8"; ctx.font = `600 8px ${F_UI}`;
+    ctx.fillText("↑ ↓ CHOOSE  ·  SPACE SELECT  ·  ESC CLOSE", W / 2, py + ph - 12);
   }
   ctx.restore();
 }
