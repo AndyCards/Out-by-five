@@ -7527,8 +7527,9 @@ function renderCaught() {
   // once the scene has settled, hand control back to the player instead of
   // auto-resuming — Continue picks up from the checkpoint, Restart starts fresh
   if (game.caughtHold) {
-    const bw = 198 * 1.2, bh = 42 * 1.2, gap = 10 * 1.2;
-    const bx0 = Math.round(W / 2 - bw - gap / 2), by = cy + chh - 16 - bh;
+    const btnMargin = 16, gap = 12, bh = 42 * 1.2;
+    const bw = Math.floor((cw - btnMargin * 2 - gap) / 2);
+    const bx0 = cx + btnMargin, by = cy + chh - 16 - bh;
     caughtBtns = [
       { id: "restart", x: bx0, y: by, w: bw, h: bh },
       { id: "continue", x: bx0 + bw + gap, y: by, w: bw, h: bh },
@@ -7645,20 +7646,28 @@ function renderResultCard(win) {
     ["Files landed", String(stats.fileHits)],
     ["Office loot", `${stats.loot || 0} / ${LOOT_TOTAL}`],
   ];
-  const title = win ? "YOU'VE MADE IT!" : (r.loseMsg || LOSE_MESSAGES[0]);
-  // compact vertical rhythm: header, score, stats, badge, best line, CTAs — no dead bands between them
-  const scoreY = 128;
-  const rowGap = win ? 32 : 36;
-  const rowsTop = scoreY + (win && r.noMeetings ? 58 : 44);
-  const lastRowY = rowsTop + (rows.length - 1) * rowGap;
+  const title = win ? "You've Made It!" : (r.loseMsg || LOSE_MESSAGES[0]);
   const badge = (r.titles && r.titles[0]) || null;
-  const gap = 12, bh = 46;
-  const bw = Math.floor((cw - 72 - gap) / 2);   // two buttons span exactly the stat-row width (36px margins)
-  let cur = lastRowY + 20;                       // just under the last divider
-  const badgeY = cur; if (badge) cur += 36 + 10;
-  const bestY = cur + 10; if (win && r.best) cur += 26;
-  const btnY = cur + 12;
-  const chh = btnY + bh + 20;
+
+  // ── Section heights ──────────────────────────────────────────────
+  // Per-section gaps so each transition feels right.
+  const SEC_GAP   = 8;                                  // default between sections
+  const GAP_HDR   = 18;                                 // header → score (wider breathing room)
+  const GAP_BADGE = 0;                                  // badge → CTAs (snug, they belong together)
+  const headerH   = 112;                                // title + subtitle (clearance for descenders)
+  const scoreH    = win && r.noMeetings ? 78 : 66;     // "ESCAPE SCORE" label + number (+ bonus line)
+  const rowGap    = win ? 32 : 36;
+  const statsH    = (rows.length - 1) * rowGap + 28;   // rows + final divider clearance
+  const badgeH    = badge ? 36 + 28 : 0;               // pill height + flanking prop clearance (tight)
+  const bh = 46, gap = 12;
+  const bw = Math.floor((cw - 72 - gap) / 2);          // two buttons span the stat-row width
+
+  // Absolute Y anchors built from top of card downward
+  const scoreY    = headerH + GAP_HDR;
+  const rowsTop   = scoreY + scoreH + SEC_GAP;
+  const badgeTopY = rowsTop + statsH + SEC_GAP;
+  const btnY      = badgeTopY + badgeH + (badge ? GAP_BADGE : 0);
+  const chh       = btnY + bh + 20;   // 20px bottom breathing room
   const cy = Math.round((H - chh) / 2) - 8;
   const tnow = performance.now();
   drawConfetti();
@@ -7688,7 +7697,7 @@ function renderResultCard(win) {
       drawSparkle(W / 2 + tw / 2 + 62, cy + 34, 7 + 2 * Math.sin(tnow / 170), 0.6 + 0.4 * Math.sin(tnow / 200), C.teal);
       drawSparkle(W / 2 - tw / 2 - 66, cy + 30, 6 + 2 * Math.sin(tnow / 150 + 1), 0.6 + 0.4 * Math.sin(tnow / 190 + 1), C.teal);
     }
-    ctx.fillStyle = C.tealMid; ctx.fillText(title, W / 2 + 3, cy + 61);   // block shadow
+    ctx.fillStyle = "#B4BEC8"; ctx.fillText(title, W / 2 + 3, cy + 61);   // block shadow
   } else { ctx.fillStyle = "#B4BEC8"; ctx.fillText(title, W / 2 + 3, cy + 61); }   // muted slate shadow
   ctx.fillStyle = C.navyDark; ctx.fillText(title, W / 2, cy + 58); ctx.restore();
   if (win) {
@@ -7737,7 +7746,7 @@ function renderResultCard(win) {
     ctx.restore();
   }
   ctx.font = `800 38px ${F_UI}`;
-  ctx.fillStyle = win ? C.tealMid : "#B4BEC8"; ctx.fillText(score.toLocaleString("en-US"), W / 2 + 3, cy + scoreY + 17);   // same block shadow as the title
+  ctx.fillStyle = "#B4BEC8"; ctx.fillText(score.toLocaleString("en-US"), W / 2 + 3, cy + scoreY + 17);   // slate block shadow
   ctx.fillStyle = C.navyDark;
   ctx.fillText(score.toLocaleString("en-US"), W / 2, cy + scoreY + 14);
   if (win && r.noMeetings) {
@@ -7759,20 +7768,15 @@ function renderResultCard(win) {
     }
     ctx.textAlign = "left"; ctx.fillStyle = "#3A4658"; ctx.font = `500 15px ${F_TEXT}`;
     ctx.fillText(label, rowX0, y);
-    // values: lighter weight + manual tracking so the digits breathe (canvas letterSpacing isn't reliable everywhere)
-    ctx.fillStyle = C.navyDark; ctx.font = `600 17px ${F_UI}`; ctx.textAlign = "left";
-    {
-      const track = 0.8, chars = [...String(value)], ws = chars.map(c => ctx.measureText(c).width);
-      let vx = rowX1 - (ws.reduce((a, b) => a + b, 0) + track * (chars.length - 1));
-      chars.forEach((c, k) => { ctx.fillText(c, vx, y); vx += ws[k] + track; });
-    }
+    ctx.fillStyle = C.navyDark; ctx.font = `600 17px ${F_UI}`; ctx.textAlign = "right";
+    ctx.fillText(value, rowX1, y);
     ctx.strokeStyle = "rgba(38,52,70,0.12)"; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(rowX0, y + 14); ctx.lineTo(rowX1, y + 14); ctx.stroke();
   });
 
   if (win) {   // faint warm desk-lamp glow pooled behind the badge + best line
     ctx.save(); ctx.beginPath(); ctx.roundRect(cx, cy, cw, chh, 8); ctx.clip();
-    ctx.translate(W / 2, cy + badgeY + 30); ctx.scale(1, 0.34);
+    ctx.translate(W / 2, cy + badgeTopY + 30); ctx.scale(1, 0.34);
     const lg = ctx.createRadialGradient(0, 0, 0, 0, 0, 200);
     lg.addColorStop(0, "rgba(255,214,120,0.30)"); lg.addColorStop(1, "rgba(255,214,120,0)");
     ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(0, 0, 200, 0, Math.PI * 2); ctx.fill();
@@ -7784,7 +7788,7 @@ function renderResultCard(win) {
     const [name] = badge;
     ctx.font = `800 16px ${F_UI}`;
     const pillW = Math.round(ctx.measureText(name).width + 40 + (win ? 44 : 0)), pillH = 36;
-    const py = cy + badgeY, pxx = Math.round(W / 2 - pillW / 2);
+    const py = cy + badgeTopY, pxx = Math.round(W / 2 - pillW / 2);
     // same chunky pixel style as the CTAs: dark outline, base underneath, highlight strip
     pixelButton(pxx, py, pillW, pillH, win ? C.teal : "#8B96A3", win ? "#0B8A84" : "#6C7A8A", false);
     ctx.textAlign = "center"; ctx.fillStyle = "#FFFFFF"; ctx.font = `800 16px ${F_UI}`;
@@ -7826,15 +7830,8 @@ function renderResultCard(win) {
     }
   }
 
-  if (win && r.best) {
-    const b = r.best;
-    const bestTxt = `TODAY'S BEST ${clockString(b.daily)}  ·  ALL-TIME ${clockString(b.all)}`;
-    ctx.textAlign = "center"; ctx.font = `800 ${Math.round(9 * 1.2)}px ${F_UI}`;
-    ctx.fillStyle = "#6C7A8A"; ctx.fillText(bestTxt, W / 2, cy + bestY + 6);
-  }
-
   // buttons: secondary (share) left, primary (play again) right — same order as the caught card
-  const bx0 = Math.round(W / 2 - bw - gap / 2), by = cy + btnY;
+  const bx0 = cx + 36, by = cy + btnY;
   resultBtns = [
     { id: "share", x: bx0, y: by, w: bw, h: bh },
     { id: "again", x: bx0 + bw + gap, y: by, w: bw, h: bh },
