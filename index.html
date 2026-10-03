@@ -7532,16 +7532,14 @@ function renderCaught() {
       { id: "restart", x: bx0, y: by, w: bw, h: bh },
       { id: "continue", x: bx0 + bw + gap, y: by, w: bw, h: bh },
     ];
-    // secondary action: white background with purple border & text
-    roundRect(bx0, by, bw, bh, 6 * 1.2, "#FFFFFF", purple, false);
-    ctx.strokeStyle = purple; ctx.lineWidth = 2.5 * 1.2;
-    ctx.beginPath(); ctx.roundRect(bx0 + 1.25 * 1.2, by + 1.25 * 1.2, bw - 2.5 * 1.2, bh - 2.5 * 1.2, 4.75 * 1.2); ctx.stroke();
-    ctx.fillStyle = purple; ctx.font = `800 ${Math.round(13 * 1.2)}px ${F_UI}`; ctx.textAlign = "center";
-    ctx.fillText("↻ RESTART SHIFT", bx0 + bw / 2, by + 27 * 1.2);
-    // primary action: purple filled with white text
-    roundRect(bx0 + bw + gap, by, bw, bh, 6 * 1.2, purple, null, true);
+    // secondary: pixel-style white button
+    const liftR = pixelButton(bx0, by, bw, bh, "#FFFFFF", "#D8DDE2", false);
+    ctx.textAlign = "center"; ctx.fillStyle = purple; ctx.font = `800 ${Math.round(13 * 1.2)}px ${F_UI}`;
+    ctx.fillText("↻ RESTART SHIFT", bx0 + bw / 2, by + bh / 2 + 4.5 - liftR);
+    // primary: pixel-style purple button
+    const liftC = pixelButton(bx0 + bw + gap, by, bw, bh, purple, inv.kind === "director" ? "#2E2F5B" : "#3C3EA0", false);
     ctx.fillStyle = "#FFFFFF"; ctx.font = `800 ${Math.round(13 * 1.2)}px ${F_UI}`; ctx.textAlign = "center";
-    ctx.fillText("▶ CONTINUE", bx0 + bw + gap + bw / 2, by + 27 * 1.2);
+    ctx.fillText("▶ CONTINUE", bx0 + bw + gap + bw / 2, by + bh / 2 + 4.5 - liftC);
     ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.font = `600 ${Math.round(9 * 1.2)}px ${F_UI}`;
     ctx.fillText(touchUI ? "TAP TO CHOOSE" : "SPACE · CONTINUE      R · RESTART", W / 2, cy + chh + 20 * 1.2);
   }
