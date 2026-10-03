@@ -7326,8 +7326,8 @@ function renderMenu() {
     const tot = ws.reduce((a, b) => a + b, 0) + track * (chars.length - 1);
     ctx.textAlign = "left";
     let x = W / 2 - tot / 2;
-    // block shadow (offset +3/+3, muted teal for pause, slate for settings)
-    ctx.fillStyle = isPause ? C.tealMid || "#0B8A84" : "#B4BEC8";
+    // block shadow — slate offset for both pause and settings
+    ctx.fillStyle = "#B4BEC8";
     chars.forEach((c, i) => { ctx.fillText(c, x + 3, titleY + 3); x += ws[i] + track; });
     x = W / 2 - tot / 2;
     ctx.fillStyle = C.navyDark;
