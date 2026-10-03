@@ -7225,12 +7225,13 @@ function renderHowToPlay() {
 
 /* Chunky game button: dark outline, darker "base" underneath for depth,
    highlight strip on top. Selected buttons sit 2px higher (ready to press). */
-function pixelButton(x, y, w, h, face, base, sel) {
+function pixelButton(x, y, w, h, face, base, sel, borderCol) {
   const lift = sel ? 2 : 0;
-  ctx.fillStyle = "#1B2634"; ctx.fillRect(x, y + 2, w, h);                 // outline + base block
-  ctx.fillStyle = base;      ctx.fillRect(x + 2, y + h - 4, w - 4, 4);
-  ctx.fillStyle = "#1B2634"; ctx.fillRect(x, y - lift, w, h - 2);
-  ctx.fillStyle = face;      ctx.fillRect(x + 2, y + 2 - lift, w - 4, h - 6);
+  const border = borderCol || "#1B2634";
+  ctx.fillStyle = border; ctx.fillRect(x, y + 2, w, h);                 // outline + base block
+  ctx.fillStyle = base;   ctx.fillRect(x + 2, y + h - 4, w - 4, 4);
+  ctx.fillStyle = border; ctx.fillRect(x, y - lift, w, h - 2);
+  ctx.fillStyle = face;   ctx.fillRect(x + 2, y + 2 - lift, w - 4, h - 6);
   ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.fillRect(x + 4, y + 4 - lift, w - 8, 2);
   return lift;
 }
@@ -7532,12 +7533,12 @@ function renderCaught() {
       { id: "restart", x: bx0, y: by, w: bw, h: bh },
       { id: "continue", x: bx0 + bw + gap, y: by, w: bw, h: bh },
     ];
-    // secondary: pixel-style white button
-    const liftR = pixelButton(bx0, by, bw, bh, "#FFFFFF", "#D8DDE2", false);
+    // secondary: pixel-style white button with purple border
+    const liftR = pixelButton(bx0, by, bw, bh, "#FFFFFF", "#D8DDE2", false, purple);
     ctx.textAlign = "center"; ctx.fillStyle = purple; ctx.font = `800 ${Math.round(13 * 1.2)}px ${F_UI}`;
     ctx.fillText("↻ RESTART SHIFT", bx0 + bw / 2, by + bh / 2 + 4.5 - liftR);
-    // primary: pixel-style purple button
-    const liftC = pixelButton(bx0 + bw + gap, by, bw, bh, purple, inv.kind === "director" ? "#2E2F5B" : "#3C3EA0", false);
+    // primary: pixel-style purple button with darker purple border
+    const liftC = pixelButton(bx0 + bw + gap, by, bw, bh, purple, inv.kind === "director" ? "#2E2F5B" : "#3C3EA0", false, inv.kind === "director" ? "#2E2F5B" : "#3C3EA0");
     ctx.fillStyle = "#FFFFFF"; ctx.font = `800 ${Math.round(13 * 1.2)}px ${F_UI}`; ctx.textAlign = "center";
     ctx.fillText("▶ CONTINUE", bx0 + bw + gap + bw / 2, by + bh / 2 + 4.5 - liftC);
     ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.font = `600 ${Math.round(9 * 1.2)}px ${F_UI}`;
