@@ -7534,8 +7534,9 @@ function renderCaught() {
       { id: "restart", x: bx0, y: by, w: bw, h: bh },
       { id: "continue", x: bx0 + bw + gap, y: by, w: bw, h: bh },
     ];
-    // secondary: rounded rect white button
+    // secondary: rounded rect white button with purple border
     ctx.fillStyle = "#FFFFFF"; ctx.beginPath(); ctx.roundRect(bx0, by, bw, bh, 6); ctx.fill();
+    ctx.strokeStyle = purple; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(bx0 + 1, by + 1, bw - 2, bh - 2, 6); ctx.stroke();
     ctx.textAlign = "center"; ctx.fillStyle = purple; ctx.font = `800 ${Math.round(13 * 1.2)}px ${F_UI}`;
     ctx.fillText("↻ RESTART SHIFT", bx0 + bw / 2, by + bh / 2 + 4.5);
     // primary: rounded rect purple button
