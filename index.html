@@ -215,13 +215,13 @@
  * pixel art only, no external assets. Palette matches js/personas/employee.js.
  * ======================================================================= */
 
-/* =========================================================================
- * OUT BY FIVE — CHARACTER SPRITES
- * Grid-based pixel art. Each character = head art + torso art + parametric
+// =====================================================
+// SPRITES / ART
+// =====================================================
+/* Grid-based pixel art. Each character = head art + torso art + parametric
  * limbs (so walk/run cycles stay consistent) + expression overlays + props.
  * Every frame gets an automatic 1px dark outline, then is cached as a canvas
- * (plus a mirrored copy for facing left).
- * ======================================================================= */
+ * (plus a mirrored copy for facing left). */
 const Sprites = (() => {
   const PX = 2;                 // world pixels per art pixel
   const OUTLINE = "#17202B";
@@ -846,7 +846,26 @@ const blurCanvas = document.getElementById("gameBlur");
 const blurCtx = blurCanvas.getContext("2d");
 blurCtx.imageSmoothingEnabled = false;
 
-/* --------------------------- CONFIG (from GDD) --------------------------- */
+// =====================================================
+// GAME CONFIG
+// =====================================================
+// CONFIG: Reference object for all tunable gameplay constants.
+// These values mirror the GDD and the standalone consts below — change here
+// for documentation/future refactoring; runtime code still reads the consts.
+const GAME_CONFIG = {
+  // Canvas / world dimensions (do not change — everything is authored in this space)
+  W: 1104, H: 621,
+  // Physics
+  gravity: 2300,        // CONFIG: units/s² — affects jump arc and fall speed
+  jumpForce: 790,       // CONFIG: upward velocity on jump
+  playerSpeed: 250,     // CONFIG: horizontal run speed
+  // Timing
+  totalTimeMs: 300_000, // 5 minutes (4:55–5:00 PM)
+  invulMs: 1500,        // invulnerability window after being caught
+  jumpBufferMs: 60,     // forgiveness window for jumping just after leaving ground
+};
+
+// CONFIG: Actual runtime constants (kept separate so no logic changes)
 const W = 1104;
 const H = 621;
 
@@ -887,6 +906,9 @@ function readSafeInsets() {
   return { t: f(cs.paddingTop), r: f(cs.paddingRight), b: f(cs.paddingBottom), l: f(cs.paddingLeft) };
 }
 
+// =====================================================
+// CANVAS / RESPONSIVE SCALING
+// =====================================================
 function fitHudCanvas(ss) {
   ss = ss || 1;
   const availW = window.innerWidth, availH = window.innerHeight;
@@ -1126,8 +1148,10 @@ function saveSettings() { try { localStorage.setItem("obf-settings", JSON.string
 let muted = !settings.sound;
 const canVibrate = typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
 
-/* --------------------------- HAPTICS --------------------------- */
-/* Progressive enhancement: silently does nothing where vibrate() is missing.
+// =====================================================
+// HAPTICS
+// =====================================================
+/* MOBILE: Progressive enhancement — silently does nothing where vibrate() is missing.
    Fires once per action / state transition — never continuous, never per-frame.
    Each named pattern gets its own short cooldown (instead of one shared lock)
    so a real sequence like jump→land→dodge isn't swallowed, while the game
@@ -1196,7 +1220,17 @@ const Haptics = {
   },
 };
 
-/* --------------------------- SOUND --------------------------- */
+// =====================================================
+// AUDIO
+// =====================================================
+// CONFIG: Audio gain reference — runtime values are set inside Sound.applySettings().
+const AUDIO_CONFIG = {
+  masterGain: 0.7,
+  musicGain: 0.35,
+  musicGainMuffled: 0.56,   // muffled = ~1.6x base (headphones effect)
+  sfxDuck: { minor: 0.82, major: 0.55, critical: 0.28 },
+};
+
 /* Everything is synthesized with Web Audio. Each archetype has an identity:
    Manager = bright & comedic (triangle/square, high), Co-worker = bubbly &
    social (sine pops, chatter), Director = low & serious (saw/triangle, low). */
@@ -1493,6 +1527,9 @@ document.addEventListener("visibilitychange", () => {
 Sound.unlock();
 window.addEventListener("load", () => { Sound.unlock(); }, { once: true });
 setInterval(() => { Sound.unlock(); if (game.mode === "PLAY" && settings.music) Sound.startMusic(); }, 3000);  // Keep audio active
+// =====================================================
+// DESKTOP CONTROLS
+// =====================================================
 const keys = new Set();
 const pressed = new Set();  // one-shot this frame
 function pressKey(k) { if (!keys.has(k)) pressed.add(k); keys.add(k); }
@@ -1511,6 +1548,20 @@ window.addEventListener("blur", () => {
 });
 function keyDown(...ks) { return ks.some(k => keys.has(k)); }
 function keyPressed(...ks) { return ks.some(k => pressed.has(k)); }
+
+// =====================================================
+// MOBILE CONTROLS
+// =====================================================
+// MOBILE UI CONFIG: touch button sizing and layout offsets.
+// MOBILE: touch controls are real DOM buttons (#touchUI) fixed to viewport — not canvas coords.
+const MOBILE_UI_CONFIG = {
+  controlSize: 56,     // px diameter of each touch button
+  controlGap: 10,      // px between buttons
+  jumpBtnW: 90,
+  jumpBtnH: 56,
+  dpadX: 24,
+  dpadY: -80,          // offset from bottom of screen
+};
 
 /* ---- touch controls (GDD: mobile) ---- */
 let touchUI = (typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches);
@@ -1730,7 +1781,9 @@ function todayLabel() {
 }
 let rng = mulberry32(Number(todayKey().replace(/-/g, "")));
 
-/* --------------------------- WORLD OBJECTS --------------------------- */
+// =====================================================
+// PLATFORMS
+// =====================================================
 /* desk / stand / shelf / counter: one-way platforms (↓+Space drops through)
    cabinet / bookshelf / printer / coffee-machine: solid sides, standable tops */
 const objects = [];
@@ -1750,6 +1803,11 @@ function solidNow(o) { return SOLID.has(o.type); }
 // existing resolveSolids() collision handles the bump for free.
 const hazards = [];
 
+// =====================================================
+// COLLECTIBLES
+// =====================================================
+// Pickups (files, coffee, phones) are seeded per-zone in seedLevel().
+// Hazards are zone-flavored obstacles that slow the player on contact.
 function seedLevel() {
   objects.length = 0; pickups.length = 0; meetingRooms.length = 0; hazards.length = 0;
   const j = (n) => Math.round((rng() - 0.5) * 2 * n);
@@ -2052,6 +2110,9 @@ function elapsedString(ms) {
 }
 function onScreen(x, pad = 0) { return x > game.cameraX - pad && x < game.cameraX + W + pad; }
 
+// =====================================================
+// COLLISION
+// =====================================================
 /* Swept landing: compares last frame's feet with this frame's, so fast falls
    can no longer tunnel through desks (old check assumed 60 fps). */
 function collideVertical(prevFeet) {
@@ -2076,6 +2137,11 @@ function canGetHeadache() {
   // between two doors would feel cheap, not funny
   return !player.inRoom && now >= player.invulUntil && (!player.headacheUntil || now >= player.headacheUntil + 1500);
 }
+// =====================================================
+// PANTRY HAZARDS
+// =====================================================
+// Zone-flavored obstacles: open drawers (printer zone), recycling bins (pantry),
+// rolling chairs (executive floor). Contact triggers a headache — a 3s slowdown.
 function triggerHeadache(fromX) {
   player.headacheUntil = now + 3000;
   stats.headaches = (stats.headaches || 0) + 1;
@@ -2312,6 +2378,9 @@ function hasLineOfSight(from, to) {
 function phoneDown(e) { return e.variant === "phone" && now >= e.lookUntil && e.awareness < 25; }
 function visionRange(e) { return e.visRange * esc().vision * (phoneDown(e) ? 0.4 : 1); }
 
+// =====================================================
+// MANAGER LINE OF SIGHT
+// =====================================================
 /* ---- Manager / Director sight: true line of sight ----
    (hasLineOfSight above is the Coworker's check — deliberately unchanged.)
    Detection flow:  in range → in FOV → unobstructed LOS → awareness rises.
@@ -2361,6 +2430,8 @@ function segRectHit(x0, y0, x1, y1, r) {
   return t0;
 }
 function bossEye(e) { return { x: e.x + e.facing * 8, y: e.y - Sprites.height(e.kind) * 0.74 }; }   // same point the vision cone is drawn from
+// MANAGER LOS: sample head, chest and hips so partial cover behaves fairly —
+// 2 of 3 points must be clear (LOS_MIN_CLEAR) to count as seen
 function playerSightSamples() {
   const pb = playerBox();
   // head, chest, hips — head + chest in clear view ("upper body") is enough to be seen
@@ -2405,12 +2476,17 @@ function bossSight(e) {
 }
 function enemySeesPlayer(e) { e.sight = bossSight(e); return e.sight.visible; }
 
-/* ---- LOS debug view (temporary) ----
-   Press L in-game, or open the page with ?los in the URL.
-   To remove it entirely, set LOS_DEBUG_ALLOWED to false. */
+// =====================================================
+// DEBUG TOOLS
+// =====================================================
+// DEBUG: LOS (line-of-sight) overlay — press L in-game or add ?los to the URL.
+// DEBUG: Set LOS_DEBUG_ALLOWED to false to remove the overlay entirely.
 const LOS_DEBUG_ALLOWED = true;
 let LOS_DEBUG = LOS_DEBUG_ALLOWED && /[?&]los\b/.test(location.search);
 
+// =====================================================
+// TIMER
+// =====================================================
 /* --------------------------- ESCALATION --------------------------- */
 const ESC = [
   { speed: 0.85, vision: 1.0,  pause: 1700 },   // 4:55 calm
@@ -2447,6 +2523,26 @@ function pop(x, y, text, color = "#1B2634", ms = 700, size = 16) {
   game.pops.push({ x, y, text, color, ms, size, t0: performance.now() });
 }
 function shake(mag, ms) { game.shakeMag = mag; game.shakeUntil = performance.now() + ms; }
+
+// =====================================================
+// SCORE SYSTEM
+// =====================================================
+// CONFIG: Score weights — edit SCORE entries to rebalance without touching game logic.
+// RESULTS_CONFIG below mirrors these for the results card display layer.
+const RESULTS_CONFIG = {
+  // Pixel-style CTA buttons
+  ctaHeight: 46,
+  ctaGap: 12,
+  ctaPadH: 36,    // horizontal padding inside modal for buttons
+  // Modal dimensions
+  modalW: 420,
+  // Score weights — change these to rebalance escape score
+  syncPenalty: -80,
+  stompBonus: 50,
+  lootBonus: 15,
+  dodgeBonus: 20,
+  baseScore: 1000,
+};
 
 // ESCAPE SCORE — a secondary mastery layer; getting out before 5 PM is still
 // the win condition. All values & labels live here so balancing is one edit.
@@ -2693,7 +2789,11 @@ function update(dtMs) {
   pressed.clear();
 }
 
-const MOBILE_ZOOM = 1.3;   // ~30% closer camera on touch devices: bigger character/enemies, less world per screen
+// =====================================================
+// CAMERA
+// =====================================================
+// MOBILE: zoom the effective view ~30 % in so characters and enemies read larger
+const MOBILE_ZOOM = 1.3;   // CONFIG: tunable — raise to push the camera closer on touch devices
 function updateCamera(dt) {
   // On mobile, zoom the effective view in and lead the camera in the direction
   // of travel so the player can see more of what's ahead (platforms, enemies).
@@ -2776,6 +2876,9 @@ function updateWorld() {
       }
     }
   }
+  // =====================================================
+  // DOORS
+  // =====================================================
   for (const r of meetingRooms) {
     const left = r.nextSwitch - now;
     if (!r.booked && player.inRoom === r && left < 3000 && Math.ceil(left / 1000) !== r.warned) {
@@ -2795,7 +2898,25 @@ function updateWorld() {
   }
 }
 
-/* ---- player ---- */
+// =====================================================
+// PLAYER MOVEMENT
+// =====================================================
+// =====================================================
+// PLAYER CONFIG
+// =====================================================
+const PLAYER_CONFIG = {
+  speed: 250,           // px/s run speed
+  jumpForce: 790,       // px/s upward velocity on jump
+  gravity: 2300,        // px/s² downward acceleration
+  invulMs: 1500,        // invulnerability after being caught
+  jumpBufferMs: 60,     // CONFIG: forgiveness window for late jump input
+  duckHeight: 30,       // px (vs 46 standing)
+  coffeeDuration: 8000, // ms
+  coffeeSpeedMult: 1.4, // speed multiplier while caffeinated
+  phonesDuration: 8000, // ms
+  maxFiles: 3,
+};
+
 function updatePlayer(dt, dtMs) {
   let speedMul = player.coffeeUntil > now ? 1.4 : 1.0;
   if (player.headacheUntil > now) speedMul *= 0.55;
@@ -2814,6 +2935,9 @@ function updatePlayer(dt, dtMs) {
     else { player.vx = 0; return prevFeet; }
   }
 
+  // =====================================================
+  // FAKE WORK
+  // =====================================================
   // --- seated at a chair: hold E to fake work, move/jump to stand ---
   if (player.sitting) {
     const wasFaking = player.fakingWork;
@@ -2845,6 +2969,9 @@ function updatePlayer(dt, dtMs) {
     }
   }
 
+  // =====================================================
+  // FILE THROWING
+  // =====================================================
   // --- throw a file ---
   if (keyPressed("f")) {
     if (player.files > 0) {
@@ -2900,6 +3027,7 @@ function updatePlayer(dt, dtMs) {
   }
 
   // --- jump / drop-through ---
+  // FIX: jump buffer allows ~60ms forgiveness for jumping after leaving ground (JUMP_BUFFER)
   if (jumpP && !(lad && upHeld && !keyPressed(" ", "z"))) player.jumpBuffered = now + JUMP_BUFFER;
   const sinceGround = now - player.lastGrounded;
   const canJump = player.grounded || (sinceGround >= 0 && sinceGround < COYOTE);
@@ -2918,6 +3046,9 @@ function updatePlayer(dt, dtMs) {
   // (a tap still gives a ~92px hop; holding gives the full ~136px jump)
   if (!jumpHeld && player.vy < -300 && !player.jumpCut && now - (player.jumpAt || 0) > 100) { player.vy *= 0.6; player.jumpCut = true; }
 
+  // =====================================================
+  // HIDING
+  // =====================================================
   // --- duck / hide / slip into a meeting room ---
   const wasHidden = player.hidden;
   player.ducking = down && player.grounded;
@@ -2980,7 +3111,28 @@ function powerupEdges() {
   player.coffeeOn = coffee; player.phonesOn = phones;
 }
 
-/* ---- enemies ---- */
+// =====================================================
+// AWARENESS CONFIG
+// =====================================================
+const AWARENESS_CONFIG = {
+  // Manager awareness thresholds
+  curious: 25, suspicious: 60, spotted: 95, max: 100,
+  // Drain rates (per second) while player is hiding or faking work
+  hideDrain: -1.1,      // hidden under desk
+  fakeDrain: -2.2,      // faking work at a desk
+  directorHideDrain: -0.6,  // director sees through hiding better
+  // Stun durations (ms)
+  managerStunMs: 2200,
+  directorStunMs: 1000,
+  // Vision distances (px)
+  managerLosRange: 190,
+  directorLosRange: 230,
+  coworkerRange: 230,
+};
+
+// =====================================================
+// MANAGER AI
+// =====================================================
 function updateEnemy(e, dt) {
   if (!e.active) {
     // spawn by the clock, but never pop into view
@@ -3001,6 +3153,9 @@ function updateEnemy(e, dt) {
 
   if (now < (e.startledUntil || 0)) { e.facing = Math.sign(player.x - e.x) || e.facing; awarenessCues(e, isDir); return; }
 
+  // =====================================================
+  // AWARENESS SYSTEM
+  // =====================================================
   // awareness:  VISIBLE → rises · LOS just broken (< LOS_GRACE_MS) → holds ·
   //             LOS stays broken → drains · 100% while VISIBLE → caught
   const sees = enemySeesPlayer(e) && now >= player.invulUntil;
@@ -3078,6 +3233,9 @@ function updateEnemy(e, dt) {
       if (moveEnemyX(e, e.facing * speed * 1.4 * dt)) e.investigateUntil = now;
     } else e.facing = e.target < e.x + 30 ? 1 : -1;
     if (now >= e.investigateUntil) e.state = "return";
+  // =====================================================
+  // DIRECTOR AI
+  // =====================================================
   } else if (e.state === "inspect") {
     // the Director walks to where he last saw you and looks around
     const dx = e.inspectX - e.x;
@@ -3159,6 +3317,9 @@ function awarenessCues(e, isDir) {
   if (a === 0 && e.peak < 75) e.peak = 0;
 }
 
+// =====================================================
+// CHATTY COWORKER
+// =====================================================
 function updateCoworker(e, dt) {
   const E = esc();
   const side = Math.sign(player.x - e.x) || 1;
@@ -3388,12 +3549,18 @@ function updatePickups(dt) {
     if (p.type === "file") {
       if (player.files >= 3) continue;
       player.files++; Sound.play("pickupFile");
+    // =====================================================
+    // COFFEE POWER-UP
+    // =====================================================
     } else if (p.type === "coffee") {
-      player.coffeeUntil = now + 8000; stats.coffee++; game.coffeeUsed++;
+      player.coffeeUntil = now + 8000; stats.coffee++; game.coffeeUsed++;  // CONFIG: 8000 ms = coffeeDuration
       Sound.play("coffee"); Haptics.buzz(HAPTIC.coffee);
       pop(player.x, player.y - 84, "CAFFEINATED!", "#7A4A2A", 700, 15);
+    // =====================================================
+    // HEADPHONES POWER-UP
+    // =====================================================
     } else if (p.type === "phones") {
-      player.phonesUntil = now + 8000;
+      player.phonesUntil = now + 8000;  // CONFIG: 8000 ms = phonesDuration
       Sound.play("phonesOn"); Haptics.buzz(HAPTIC.headphones); Sound.setMuffle(true);
       pop(player.x, player.y - 84, "TUNED OUT", "#0A8C86", 700, 15);
     }
@@ -3402,9 +3569,12 @@ function updatePickups(dt) {
   }
 }
 
-/* --------------------------- CAUGHT --------------------------- */
+// =====================================================
+// CAUGHT / QUICK MEETING
+// =====================================================
 // Manager = relatable, petty-office-life humor. Director = short, dry, and
 // quietly terrifying — no jokes, just consequences.
+// AI CHANGE: caught modal preserves current mobile camera instead of resetting viewport
 // Dry, understated meeting-name pool for the manager catch — the humor is in
 // how believable each one sounds on a real calendar, not in the wording.
 const TITLE_POOL = ["Quick Sync", "Tiny Meeting", "Brief Catch-Up", "Small Discussion", "One Small Thing", "Team Sync", "Status Update"];
@@ -3512,7 +3682,11 @@ function resumeAfterCaught() {
   if (game.pauseOnResume) { game.pauseOnResume = false; openMenu(); }
 }
 
+// =====================================================
+// WIN / ELEVATOR
+// =====================================================
 /* --------------------------- ELEVATOR EXIT --------------------------- */
+// AI CHANGE: elevator entry triggers score payout and ride-down animation before win()
 function beginExit() {
   if (game.mode !== "PLAY") return;
   game.mode = "EXIT"; game.sceneT = 0; game.exitClock = game.timeMs;
@@ -5720,6 +5894,11 @@ function groundShadow(sx, feetY, rx) {
   ctx.restore();
 }
 
+// =====================================================
+// PLAYER ANIMATION
+// =====================================================
+// Returns [animName, frameIndex] for the current player state.
+// Frame index is derived from position (run cycle) or time (idle bob).
 function playerAnim() {
   if (game.mode === "CAUGHT") return ["caught", 0];
   if (game.mode === "WIN") return ["win", 0];
@@ -6235,7 +6414,12 @@ function drawThrowable(t, camX) {
   ctx.restore();
 }
 
-/* --------------------------- HUD --------------------------- */
+// =====================================================
+// HUD
+// =====================================================
+// AI CHANGE: HUD canvas receives same HD supersample factor as game canvas
+// AI CHANGE: score chip pulses teal when points land (scoreBumpAt drives animation)
+/* --------------------------- HUD clock helpers --------------------------- */
 function fmtClock() {
   const shiftMs = SHIFT_DURATION * 1000;
   const t = clamp(game.timeMs / shiftMs, 0, 1);
@@ -6842,6 +7026,9 @@ function renderTitle() {
   ZONES.forEach((z, i) => { ctx.fillStyle = i === 0 ? C.teal : "#6C7A8A"; ctx.fillText((i + 1) + ". " + z.name, zoneX0 + i * zoneGap, GY + 44); });
 }
 
+// =====================================================
+// HOW TO PLAY
+// =====================================================
 /* A single static "How to Play" panel — objective, controls, and the three
    enemy archetypes, all on one screen. Not the paginated multi-page flow an
    earlier handoff doc described (that flow was never actually built); this
@@ -7155,6 +7342,10 @@ function renderMenu() {
   }
   ctx.restore();
 }
+// =====================================================
+// PAUSE MENU
+// =====================================================
+// AI CHANGE: PAUSED and SETTINGS share renderMenu(); menu.from distinguishes them
 function renderPause() { renderMenu(); }
 
 function drawCalendarIcon(cx, cy, size) {
@@ -7303,6 +7494,12 @@ function renderCaught() {
   ctx.restore();
 }
 
+// =====================================================
+// RESULTS SCREEN
+// =====================================================
+// AI CHANGE: result card uses pixel-style CTAs matching settings modal
+// AI CHANGE: wide layout (drawResultWide) activates on touch/landscape; portrait uses renderResultCard
+// FIX: CTA buttons derive width from modal width to prevent overflow
 /* Touch / landscape result card: two columns (headline + score | stats) with the actions across the bottom,
    so the card uses the screen's width instead of a tall portrait stack. */
 function drawResultWide(win, r, rows, title, badge) {
