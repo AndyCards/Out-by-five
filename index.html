@@ -7384,7 +7384,7 @@ function renderMenu() {
       menu.rects[i] = r;
       const isResume = it.id === "resume";
       const lift = pixelButton(r.x, r.y, r.w, r.h, isResume ? C.teal : "#FFFFFF", isResume ? "#0B8A84" : "#D8DDE2", sel);
-      ctx.textAlign = "center"; ctx.fillStyle = isResume ? "#FFFFFF" : C.navyDark; ctx.font = `800 ${T ? 13 : 11}px ${F_UI}`;
+      ctx.textAlign = "center"; ctx.fillStyle = isResume ? "#FFFFFF" : C.navyDark; ctx.font = `800 ${T ? 15 : 13}px ${F_UI}`;
       ctx.fillText(isResume ? "▶ RESUME" : "↻ START OVER", r.x + r.w / 2, r.y + btnH / 2 + (T ? 5 : 4.5) - lift);
       if (sel) pixelCursor(idxInRow ? r.x + r.w + 6 : r.x - 18, r.y + 18);
     }
