@@ -7269,7 +7269,7 @@ function renderMenu() {
   const nToggle = items.filter(t => t.value !== undefined).length;
   const pw = Math.min(T ? 480 : 400, W - 32);
   const headerH = 46;   // colored header band, matches caught modal
-  const titleAreaH = 62; // title + subtitle below header
+  const titleAreaH = 80; // title + subtitle below header
   const toggleH = nToggle * rowH + 8;
   const bottomH = hasBottom ? (btnH + 20) : 0;
   const topBtnH = isPause ? 0 : (T ? 64 : 60);  // TITLE-mode "Back to game" button
