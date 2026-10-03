@@ -887,18 +887,20 @@ function readSafeInsets() {
   return { t: f(cs.paddingTop), r: f(cs.paddingRight), b: f(cs.paddingBottom), l: f(cs.paddingLeft) };
 }
 
-function fitHudCanvas() {
+function fitHudCanvas(ss) {
+  ss = ss || 1;
   const availW = window.innerWidth, availH = window.innerHeight;
   if (availW < 1 || availH < 1) return;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const bw = Math.round(availW * dpr), bh = Math.round(availH * dpr);
+  const coarse = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+  let dpr = Math.min(window.devicePixelRatio || 1, coarse ? 2 : 3);
+  const bw = Math.round(availW * dpr * ss), bh = Math.round(availH * dpr * ss);
   if (hudCanvas.width !== bw || hudCanvas.height !== bh) {
     hudCanvas.width = bw; hudCanvas.height = bh;
     hudCtx.imageSmoothingEnabled = false;
   }
   const ins = readSafeInsets();
   const scale = Math.max(0.75, Math.min(1.1, availH / 430));   // HUD size follows the screen, not the canvas
-  hudView.scale = scale; hudView.dpr = dpr;
+  hudView.scale = scale; hudView.dpr = dpr * ss;
   hudView.ox = ins.l; hudView.oy = ins.t; hudView.ins = ins;
   hudView.w = Math.max(320, (availW - ins.l - ins.r) / scale);
   hudView.h = Math.max(200, (availH - ins.t - ins.b) / scale);
@@ -919,7 +921,7 @@ function fitCanvasResolution() {
   canvas.style.height = cssH + "px";
   canvas.style.transform = "";
   wrapEl.classList.toggle("cover", cover);
-  fitHudCanvas();
+  // fitHudCanvas() is called at the end of this function once ss is known
 
   // Touch/cover mode: keep the backing store sane on big tablets when the cover canvas overshoots the screen.
   // Desktop ("contain") is deliberately exempt — capping there would render BELOW the screen's real
@@ -951,6 +953,7 @@ function fitCanvasResolution() {
   // bw/W and bh/H both equal scale*dpr (to rounding), so this transform is uniform too.
   mainCtx.setTransform(bw / W, 0, 0, bh / H, 0, 0);
   mainCtx.imageSmoothingEnabled = false;
+  fitHudCanvas(ss);   // apply same supersample factor to modal/HUD canvas
 }
 fitCanvasResolution();
 window.addEventListener("resize", fitCanvasResolution);
