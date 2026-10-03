@@ -7280,6 +7280,19 @@ function renderMenu() {
   roundRect(px, py, pw, ph, 8, "#FFFFFF", null, true);
   modalBox = { w: pw, h: ph };
 
+  // ── corner sticky-note specks (pause only, clipped inside card) ───────────
+  if (isPause) {
+    ctx.save(); ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 8); ctx.clip();
+    const specks = [[22, 28, "#FFE58A", -0.3], [44, 58, C.tealSoft || "#A8E6CF", 0.4], [pw - 26, 32, "#FFB7C5", 0.3], [pw - 50, 60, "#9FD3F5", -0.35]];
+    for (const [sx0, sy0, col, rot] of specks) {
+      ctx.save(); ctx.translate(px + sx0, py + sy0); ctx.rotate(rot);
+      ctx.fillStyle = col; ctx.fillRect(-6, -6, 12, 12);
+      ctx.fillStyle = "rgba(0,0,0,0.09)"; ctx.fillRect(-6, -6, 12, 2);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
   // ── header band (teal for PAUSED, navy for SETTINGS) ─────────────────────
   const bandCol = isPause ? C.teal : C.navyDark;
   ctx.save(); ctx.beginPath(); ctx.rect(px, py, pw, headerH); ctx.clip();
@@ -7306,13 +7319,18 @@ function renderMenu() {
 
   // ── title + subtitle ──────────────────────────────────────────────────────
   const titleY = py + headerH + 40;
-  ctx.save(); ctx.textAlign = "center"; ctx.fillStyle = C.navyDark; ctx.font = `800 28px ${F_FUN}`;
+  ctx.save(); ctx.font = `800 28px ${F_FUN}`;
   const titleStr = isPause ? "PAUSED" : "SETTINGS";
   {
     const track = 3, chars = [...titleStr], ws = chars.map(c => ctx.measureText(c).width);
     const tot = ws.reduce((a, b) => a + b, 0) + track * (chars.length - 1);
     ctx.textAlign = "left";
     let x = W / 2 - tot / 2;
+    // block shadow (offset +3/+3, muted teal for pause, slate for settings)
+    ctx.fillStyle = isPause ? C.tealMid || "#0B8A84" : "#B4BEC8";
+    chars.forEach((c, i) => { ctx.fillText(c, x + 3, titleY + 3); x += ws[i] + track; });
+    x = W / 2 - tot / 2;
+    ctx.fillStyle = C.navyDark;
     chars.forEach((c, i) => { ctx.fillText(c, x, titleY); x += ws[i] + track; });
   }
   ctx.restore();
