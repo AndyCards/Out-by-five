@@ -7598,25 +7598,29 @@ function renderResultCard(win) {
 
   // ── SECTION LAYOUT (5 explicit sections, each with a fixed height + gap) ──
   // S1: headline + subtitle
-  const S1_H = 72;   // title (line) + subtitle
-  const GAP_12 = 18; // gap between S1 → S2
+  const S1_H = 52;   // title + subtitle line
+  const GAP_12 = 10;
   // S2: escape score (label + number + props)
-  const S2_H = 72;
-  const GAP_23 = 20; // gap between S2 → S3
+  const S2_H = 60;
+  const GAP_23 = 10;
   // S3: stat rows
-  const rowGap = win ? 30 : 34;
+  const rowGap = win ? 26 : 28;
   const S3_H = rows.length * rowGap;
-  const GAP_34 = 18; // gap between S3 → S4
+  const GAP_34 = 10;
   // S4: badge pill (always shown — placeholder height if no badge)
-  const pillH = 36;
-  const S4_H = badge ? (pillH + 8) : 20;
-  const GAP_45 = 16; // gap between S4 → S5
+  const pillH = 32;
+  const S4_H = badge ? (pillH + 4) : 16;
+  const GAP_45 = 10;
   // S5: CTA buttons
-  const bh = 46, btngap = 12;
+  const bh = 42, btngap = 10;
   const S5_H = bh;
-  const PAD_T = 28, PAD_B = 28; // top/bottom padding inside modal
+  const PAD_T = 20, PAD_B = 20;
 
-  const chh = PAD_T + S1_H + GAP_12 + S2_H + GAP_23 + S3_H + GAP_34 + S4_H + GAP_45 + S5_H + PAD_B;
+  // clamp modal height so it never exceeds the viewport
+  const chh = Math.min(
+    PAD_T + S1_H + GAP_12 + S2_H + GAP_23 + S3_H + GAP_34 + S4_H + GAP_45 + S5_H + PAD_B,
+    H - 32
+  );
   const cy = Math.round((H - chh) / 2) - 4;
 
   // absolute Y anchors for each section
